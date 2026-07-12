@@ -99,6 +99,35 @@ if (chuncheonLocations.length === 0) {
     saveLocations(chuncheonLocations);
 }
 
+// ==================== 게임 방 관리 API ====================
+
+// 모든 방 조회
+app.get('/api/rooms', (req, res) => {
+    const roomsList = Object.values(games).map(game => ({
+        gameId: game.id,
+        playerCount: game.players.length,
+        status: game.status,
+        hostId: game.hostId
+    }));
+    res.json(roomsList);
+});
+
+// 방 삭제
+app.delete('/api/rooms/:gameId', (req, res) => {
+    const gameId = req.params.gameId;
+    
+    if (!games[gameId]) {
+        return res.status(404).json({ error: '방을 찾을 수 없습니다.' });
+    }
+    
+    delete games[gameId];
+    
+    res.json({ 
+        success: true, 
+        message: '방이 삭제되었습니다.' 
+    });
+});
+
 // ==================== 장소 관리 API ====================
 
 // 모든 장소 조회
@@ -494,6 +523,72 @@ io.on('connection', (socket) => {
         });
         
         io.to(gameId).emit('gameRestarted');
+    });
+
+    // 교사용: 방 생성
+    socket.on('teacherCreateRoom', () => {
+        const gameId = uuidv4().substring(0, 6);
+        games[gameId] = {
+            id: gameId,
+            players: [],
+            status: 'waiting',
+            spyId: null,
+            locations: [],
+            descriptions: {},
+            votes: {},
+            hostId: socket.id
+        };
+        
+        socket.emit('roomCreated', { gameId });
+    });
+    
+    // 교사용: 게임 시작
+    socket.on('teacherStartGame', ({ gameId }) => {
+        if (!games[gameId]) {
+            socket.emit('error', '게임 방을 찾을 수 없습니다.');
+            return;
+        }
+        
+        const game = games[gameId];
+        
+        if (game.players.length < 2) {
+            socket.emit('error', '최소 2명의 플레이어가 필요합니다.');
+            return;
+        }
+        
+        game.status = 'playing';
+        
+        // 스파이 선택
+        const spyIndex = Math.floor(Math.random() * game.players.length);
+        game.spyId = game.players[spyIndex].id;
+        game.players[spyIndex].isSpy = true;
+        
+        // 장소 할당 (스파이 제외)
+        const shuffledLocations = [...chuncheonLocations].sort(() => Math.random() - 0.5);
+        const citizenLocations = shuffledLocations.slice(0, game.players.length - 1);
+        
+        let locationIndex = 0;
+        game.players.forEach(player => {
+            if (player.id === game.spyId) {
+                player.location = null;
+                socket.to(player.id).emit('spyRole', {
+                    message: '당신은 스파이입니다! 다른 플레이어들이 어떤 장소를 받았는지 추리해보세요.'
+                });
+            } else {
+                player.location = citizenLocations[locationIndex];
+                locationIndex++;
+                socket.to(player.id).emit('citizenRole', {
+                    location: player.location,
+                    message: `당신의 장소는 ${player.location.emoji} ${player.location.name}입니다. 이 장소에 대한 설명을 작성해주세요.`
+                });
+            }
+        });
+        
+        io.to(gameId).emit('gameStarted', { 
+            playerCount: game.players.length 
+        });
+        
+        socket.emit('gameStarted');
     });
 
     // 연결 해제
