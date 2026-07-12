@@ -82,6 +82,29 @@ body {
     margin-top: 30px;
 }
 
+/* 교사 링크 */
+.teacher-link {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.teacher-button {
+    display: inline-block;
+    padding: 15px 30px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #fff;
+    background: linear-gradient(145deg, #a29bfe, #6c5ce7);
+    text-decoration: none;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.teacher-button:active {
+    transform: scale(0.95);
+}
+
 .name-input {
     width: 100%;
     padding: 20px;

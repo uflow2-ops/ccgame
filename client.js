@@ -19,16 +19,16 @@ function setupRoleBasedUI() {
     
     const createButton = document.getElementById('create-button');
     const buttonGroup = document.getElementById('button-group');
+    const teacherLink = document.getElementById('teacher-link');
     
-    if (role === 'student') {
-        // 학생용: 게임 만들기 버튼 숨김
-        createButton.style.display = 'none';
-    } else if (role === 'teacher') {
-        // 교사용: 둘 다 표시 (기본값)
+    if (role === 'teacher') {
+        // 교사용: 둘 다 표시
         createButton.style.display = 'block';
+        if (teacherLink) teacherLink.style.display = 'none';
     } else {
-        // role 파라미터가 없으면 기본값 (둘 다 표시)
-        createButton.style.display = 'block';
+        // 학생용 또는 기본값: 게임 만들기 버튼 숨김, 교사 링크 표시
+        createButton.style.display = 'none';
+        if (teacherLink) teacherLink.style.display = 'block';
     }
 }
 
