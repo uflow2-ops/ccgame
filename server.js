@@ -16,7 +16,7 @@ app.use(express.json());
 const games = {};
 
 // 게임 설정
-const MAX_PLAYERS_PER_ROOM = 6;  // 방당 최대 인원
+const MAX_PLAYERS_PER_ROOM = 5;  // 방당 최대 인원 (5명으로 변경)
 const MIN_PLAYERS_TO_START = 2;  // 게임 시작 최소 인원
 
 // 춘천 장소 데이터
