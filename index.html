@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>춘천 스파이 게임</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <!-- 시작 화면 -->
+    <div id="start-screen" class="screen active">
+        <div class="start-content">
+            <h1 class="game-title">🕵️ 춘천 스파이 게임 🕵️</h1>
+            <h2 class="game-subtitle">우리 고장 장소 찾기</h2>
+            <div class="mascot">🕵️‍♂️</div>
+            <p class="intro-text">춘천의 장소를 맞춰보세요!</p>
+            
+            <div class="login-form">
+                <input type="text" id="player-name" placeholder="이름을 입력하세요" maxlength="10" class="name-input">
+                <div class="button-group">
+                    <button class="big-button" onclick="createGame()">새 게임 만들기</button>
+                    <button class="big-button secondary-button" onclick="showJoinModal()">게임 참가하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 게임 대기실 -->
+    <div id="waiting-room" class="screen">
+        <div class="waiting-content">
+            <h2 class="waiting-title">게임 대기실</h2>
+            <div class="game-id-display">
+                <p>게임 코드: <span id="game-id" class="game-code"></span></p>
+                <button class="copy-button" onclick="copyGameId()">복사</button>
+            </div>
+            
+            <div class="players-list">
+                <h3>참가자 목록</h3>
+                <div id="players-container" class="players-container"></div>
+            </div>
+            
+            <div class="waiting-info">
+                <p>최소 2명이 필요합니다</p>
+                <p id="player-count">현재 1명</p>
+            </div>
+            
+            <button id="start-button" class="big-button start-game-button" onclick="startGame()" disabled>
+                게임 시작하기
+            </button>
+        </div>
+    </div>
+
+    <!-- 역할 표시 화면 -->
+    <div id="role-screen" class="screen">
+        <div class="role-content">
+            <div class="role-card">
+                <div class="role-emoji" id="role-emoji">🕵️</div>
+                <h2 class="role-title" id="role-title">당신의 역할</h2>
+                <div class="role-message" id="role-message"></div>
+                <div class="location-card" id="location-card" style="display: none;">
+                    <div class="location-emoji" id="location-emoji"></div>
+                    <div class="location-name" id="location-name"></div>
+                </div>
+            </div>
+            <button class="big-button" onclick="proceedToWrite()">다음</button>
+        </div>
+    </div>
+
+    <!-- 설명 작성 화면 -->
+    <div id="write-screen" class="screen">
+        <div class="write-content">
+            <h2 class="write-title">📝 설명 작성하기</h2>
+            <div class="write-hint">
+                <p>자신이 받은 장소에 대한 설명을 작성해주세요.</p>
+                <p class="hint-sub">스파이를 속이기 위해 너무 명확하지 않게 작성하세요!</p>
+            </div>
+            <textarea id="description-input" placeholder="예: 이곳은 강 위를 걸을 수 있는 특별한 곳이에요. 아름다운 경치를 감상할 수 있죠." class="description-textarea"></textarea>
+            <button class="big-button submit-button" onclick="submitDescription()">제출하기</button>
+        </div>
+    </div>
+
+    <!-- 대기 화면 -->
+    <div id="waiting-write-screen" class="screen">
+        <div class="waiting-write-content">
+            <div class="loading-spinner">⏳</div>
+            <h2 class="waiting-write-title">다른 플레이어를 기다리는 중...</h2>
+            <p id="write-progress" class="write-progress">0/0 작성 완료</p>
+        </div>
+    </div>
+
+    <!-- 설명 확인 화면 -->
+    <div id="review-screen" class="screen">
+        <div class="review-content">
+            <h2 class="review-title">📋 모든 설명</h2>
+            <p class="review-hint">각 플레이어의 설명을 읽어보세요. 스파이를 찾아보세요!</p>
+            <div id="descriptions-list" class="descriptions-list"></div>
+        </div>
+    </div>
+
+    <!-- 투표 화면 -->
+    <div id="vote-screen" class="screen">
+        <div class="vote-content">
+            <h2 class="vote-title">🗳️ 투표하기</h2>
+            <p class="vote-hint">누가 스파이라고 생각하시나요?</p>
+            <div id="vote-options" class="vote-options"></div>
+        </div>
+    </div>
+
+    <!-- 투표 대기 화면 -->
+    <div id="waiting-vote-screen" class="screen">
+        <div class="waiting-vote-content">
+            <div class="loading-spinner">⏳</div>
+            <h2 class="waiting-vote-title">투표를 기다리는 중...</h2>
+            <p id="vote-progress" class="vote-progress">0/0 투표 완료</p>
+        </div>
+    </div>
+
+    <!-- 결과 화면 -->
+    <div id="result-screen" class="screen">
+        <div class="result-content">
+            <h1 class="result-title" id="result-title">게임 결과</h1>
+            <div class="result-card">
+                <div class="result-emoji" id="result-emoji"></div>
+                <h2 class="result-message" id="result-message"></h2>
+                <div class="result-details" id="result-details"></div>
+            </div>
+            <div class="result-buttons">
+                <button class="big-button" onclick="playAgain()">다시 하기</button>
+                <button class="big-button secondary-button" onclick="goToStart()">처음으로</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 참가 모달 -->
+    <div id="join-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2 class="modal-title">게임 참가</h2>
+            <input type="text" id="join-game-id" placeholder="게임 코드 입력" maxlength="6" class="modal-input">
+            <input type="text" id="join-player-name" placeholder="이름 입력" maxlength="10" class="modal-input">
+            <div class="modal-buttons">
+                <button class="big-button" onclick="joinGame()">참가하기</button>
+                <button class="big-button secondary-button" onclick="closeJoinModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 팝업 메시지 -->
+    <div id="popup" class="popup" style="display: none;">
+        <div class="popup-content">
+            <p class="popup-message" id="popup-message"></p>
+            <button class="popup-button" onclick="closePopup()">확인</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
