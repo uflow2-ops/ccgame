@@ -293,10 +293,46 @@ socket.on('gameEnded', (data) => {
         }
     });
     
+    // 1등 추가
+    if (data.fastestPlayer) {
+        voteDetails += `\n🏆 1등: ${data.fastestPlayer.name} (가장 빨리 완료!)`;
+    }
+    
     resultDetails.textContent = voteDetails;
+    
+    // 축하 효과 추가
+    if (data.fastestPlayer) {
+        celebrateWinner();
+    }
     
     showScreen('result-screen');
 });
+
+// 승리 축하 효과
+function celebrateWinner() {
+    const colors = ['🎉', '⭐', '🏆', '🎊', '✨', '🌟'];
+    const resultScreen = document.getElementById('result-screen');
+    
+    for (let i = 0; i < 50; i++) {
+        setTimeout(() => {
+            const confetti = document.createElement('div');
+            confetti.style.position = 'fixed';
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.top = '-50px';
+            confetti.style.fontSize = (Math.random() * 30 + 20) + 'px';
+            confetti.style.zIndex = '9999';
+            confetti.style.pointerEvents = 'none';
+            confetti.style.animation = `fall ${Math.random() * 3 + 2}s linear`;
+            confetti.textContent = colors[Math.floor(Math.random() * colors.length)];
+            
+            document.body.appendChild(confetti);
+            
+            setTimeout(() => {
+                confetti.remove();
+            }, 5000);
+        }, i * 100);
+    }
+}
 
 // 게임 재시작됨
 socket.on('gameRestarted', () => {

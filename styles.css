@@ -835,6 +835,13 @@ body {
     75% { transform: translateX(10px); }
 }
 
+@keyframes fall {
+    to {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+    }
+}
+
 /* 반응형 - 태블릿 최적화 */
 @media screen and (max-width: 1024px) {
     .game-title {
@@ -876,21 +883,269 @@ body {
     }
 }
 
+/* 모바일 최적화 */
+@media screen and (max-width: 768px) {
+    .game-title {
+        font-size: 2rem;
+    }
+    
+    .game-subtitle {
+        font-size: 1.2rem;
+    }
+    
+    .mascot {
+        font-size: 4rem;
+        margin: 20px 0;
+    }
+    
+    .intro-text {
+        font-size: 1.2rem;
+        margin-bottom: 30px;
+    }
+    
+    .login-form {
+        padding: 20px;
+        margin-top: 20px;
+    }
+    
+    .form-title {
+        font-size: 1.3rem;
+        margin-bottom: 15px;
+    }
+    
+    .name-input,
+    .game-code-input {
+        padding: 15px;
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+    }
+    
+    .big-button {
+        padding: 18px 30px;
+        font-size: 1.2rem;
+        min-width: 100%;
+    }
+    
+    .button-group {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .button-group .big-button {
+        min-width: 100%;
+    }
+    
+    .form-divider {
+        margin: 20px 0;
+    }
+    
+    .teacher-button,
+    .student-waiting-button {
+        padding: 12px 24px;
+        font-size: 1rem;
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .teacher-link,
+    .student-waiting-link {
+        margin-top: 10px;
+    }
+    
+    /* 대기실 모바일 */
+    .waiting-content {
+        padding: 20px;
+    }
+    
+    .waiting-title {
+        font-size: 1.8rem;
+        margin-bottom: 20px;
+    }
+    
+    .game-id-display {
+        flex-direction: column;
+        padding: 15px;
+        gap: 10px;
+    }
+    
+    .game-code {
+        font-size: 1.5rem;
+    }
+    
+    .copy-button {
+        width: 100%;
+        padding: 12px;
+    }
+    
+    .players-list h3 {
+        font-size: 1.3rem;
+    }
+    
+    .player-item {
+        font-size: 1.1rem;
+        padding: 12px 15px;
+    }
+    
+    .waiting-info {
+        font-size: 1.1rem;
+    }
+    
+    #player-count {
+        font-size: 1.2rem;
+    }
+    
+    /* 역할 화면 모바일 */
+    .role-content {
+        padding: 25px;
+    }
+    
+    .role-emoji {
+        font-size: 5rem;
+        margin-bottom: 15px;
+    }
+    
+    .role-title {
+        font-size: 1.8rem;
+    }
+    
+    .role-message {
+        font-size: 1.2rem;
+        padding: 15px;
+    }
+    
+    .location-card {
+        padding: 20px;
+    }
+    
+    .location-emoji {
+        font-size: 3.5rem;
+    }
+    
+    .location-name {
+        font-size: 1.5rem;
+    }
+    
+    /* 설명 작성 모바일 */
+    .write-content {
+        padding: 25px;
+    }
+    
+    .write-title {
+        font-size: 1.8rem;
+    }
+    
+    .write-hint {
+        padding: 15px;
+    }
+    
+    .write-hint p {
+        font-size: 1.1rem;
+    }
+    
+    .description-textarea {
+        min-height: 150px;
+        padding: 15px;
+        font-size: 1.1rem;
+    }
+    
+    /* 결과 화면 모바일 */
+    .result-title {
+        font-size: 2rem;
+    }
+    
+    .result-card {
+        padding: 25px;
+    }
+    
+    .result-emoji {
+        font-size: 5rem;
+    }
+    
+    .result-message {
+        font-size: 1.5rem;
+    }
+    
+    .result-details {
+        font-size: 1.1rem;
+        padding: 15px;
+    }
+    
+    /* 투표 화면 모바일 */
+    .vote-content {
+        padding: 25px;
+    }
+    
+    .vote-title {
+        font-size: 1.8rem;
+    }
+    
+    .vote-option {
+        padding: 15px;
+        font-size: 1.2rem;
+    }
+}
+
+/* 매우 작은 화면 (iPhone SE 등) */
+@media screen and (max-width: 375px) {
+    .game-title {
+        font-size: 1.6rem;
+    }
+    
+    .game-subtitle {
+        font-size: 1rem;
+    }
+    
+    .mascot {
+        font-size: 3rem;
+    }
+    
+    .intro-text {
+        font-size: 1rem;
+    }
+    
+    .login-form {
+        padding: 15px;
+    }
+    
+    .form-title {
+        font-size: 1.1rem;
+    }
+    
+    .big-button {
+        padding: 15px 20px;
+        font-size: 1rem;
+    }
+    
+    .name-input,
+    .game-code-input {
+        padding: 12px;
+        font-size: 1rem;
+    }
+}
+
 /* 터치 디바이스 최적화 */
 @media (hover: none) and (pointer: coarse) {
     .big-button {
-        min-height: 70px;
-        min-width: 150px;
+        min-height: 60px;
+        min-width: 100%;
+        padding: 18px 30px;
     }
     
     .name-input,
     .modal-input,
     .description-textarea {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         padding: 15px;
     }
     
     .vote-option {
         min-height: 60px;
+        padding: 15px;
+    }
+    
+    .btn {
+        min-height: 50px;
+        padding: 12px 20px;
     }
 }

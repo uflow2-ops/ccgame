@@ -422,6 +422,7 @@ io.on('connection', (socket) => {
         
         player.hasWritten = true;
         game.descriptions[socket.id] = description;
+        game.completionTimes[socket.id] = Date.now(); // Track completion time
         
         const allWritten = game.players.every(p => p.hasWritten);
         
@@ -432,7 +433,8 @@ io.on('connection', (socket) => {
                 playerId: p.id,
                 playerName: p.name,
                 description: game.descriptions[p.id],
-                isSpy: p.id === game.spyId
+                isSpy: p.id === game.spyId,
+                completionTime: game.completionTimes[p.id]
             }));
             
             io.to(gameId).emit('allDescriptionsSubmitted', descriptionsList);
@@ -491,6 +493,21 @@ io.on('connection', (socket) => {
             
             const spyCaught = accusedPlayerId === game.spyId;
             
+            // Determine winner based on completion time (fastest citizen)
+            let fastestPlayer = null;
+            let fastestTime = Infinity;
+            
+            if (game.completionTimes) {
+                game.players.forEach(player => {
+                    if (!player.isSpy && game.completionTimes[player.id]) {
+                        if (game.completionTimes[player.id] < fastestTime) {
+                            fastestTime = game.completionTimes[player.id];
+                            fastestPlayer = player;
+                        }
+                    }
+                });
+            }
+            
             game.status = 'ended';
             
             io.to(gameId).emit('gameEnded', {
@@ -499,7 +516,11 @@ io.on('connection', (socket) => {
                 accusedName: accusedPlayer.name,
                 voteCount,
                 actualSpyId: game.spyId,
-                winningTeam: spyCaught ? 'citizens' : 'spy'
+                winningTeam: spyCaught ? 'citizens' : 'spy',
+                fastestPlayer: fastestPlayer ? {
+                    name: fastestPlayer.name,
+                    completionTime: fastestTime
+                } : null
             });
         } else {
             socket.emit('voteSubmitted');
@@ -550,7 +571,7 @@ io.on('connection', (socket) => {
     });
     
     // 교사용: 게임 시작
-    socket.on('teacherStartGame', ({ gameId }) => {
+    socket.on('teacherStartGame', ({ gameId, duration }) => {
         if (!games[gameId]) {
             socket.emit('error', '게임 방을 찾을 수 없습니다.');
             return;
@@ -564,6 +585,9 @@ io.on('connection', (socket) => {
         }
         
         game.status = 'playing';
+        game.gameDuration = duration * 60; // Convert to seconds
+        game.startTime = Date.now();
+        game.completionTimes = {}; // Track when each player completes
         
         // 스파이 선택
         const spyIndex = Math.floor(Math.random() * game.players.length);
@@ -592,7 +616,8 @@ io.on('connection', (socket) => {
         });
         
         io.to(gameId).emit('gameStarted', { 
-            playerCount: game.players.length 
+            playerCount: game.players.length,
+            duration: duration
         });
         
         socket.emit('gameStarted');

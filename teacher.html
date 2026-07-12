@@ -365,6 +365,47 @@
             color: #856404;
         }
         
+        .timer-setting {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .timer-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .timer-controls label {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        
+        .timer-input {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            width: 80px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .timer-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .timer-label {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
         @media (max-width: 768px) {
             .locations-grid {
                 grid-template-columns: 1fr;
@@ -396,6 +437,16 @@
                 <button class="btn btn-success" onclick="createRoom()">➕ 새 방 만들기</button>
             </div>
             <div id="rooms-list" class="rooms-list"></div>
+        </div>
+        
+        <!-- 게임 시간 설정 -->
+        <div class="timer-setting">
+            <h2 class="section-title">⏱️ 게임 시간 설정</h2>
+            <div class="timer-controls">
+                <label for="game-duration">게임 시간 (분):</label>
+                <input type="number" id="game-duration" min="1" max="5" value="3" class="timer-input">
+                <span class="timer-label">분 (1~5분)</span>
+            </div>
         </div>
         
         <hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">
@@ -712,7 +763,8 @@
         // 게임 방 시작
         function startRoomGame(gameId) {
             if (!confirm('게임을 시작하시겠습니까?')) return;
-            socket.emit('teacherStartGame', { gameId });
+            const duration = document.getElementById('game-duration').value;
+            socket.emit('teacherStartGame', { gameId, duration: parseInt(duration) });
         }
         
         // 게임 방 삭제
