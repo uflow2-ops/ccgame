@@ -31,12 +31,12 @@
                     <button class="big-button secondary-button" onclick="joinGameFromStart()">참가하기</button>
                 </div>
                 
-                <div id="teacher-link" class="teacher-link" style="display: none;">
-                    <a href="teacher.html" class="teacher-button">교사용 페이지로 이동</a>
+                <div class="teacher-link">
+                    <a href="teacher.html" class="teacher-button">👨‍🏫 교사용 페이지 입장</a>
                 </div>
                 
                 <div class="student-waiting-link">
-                    <a href="waiting-room.html" class="student-waiting-button">👥 학생 대기실로 입장</a>
+                    <a href="waiting-room.html" class="student-waiting-button">👥 학생 대기실 입장하기</a>
                 </div>
             </div>
         </div>
@@ -161,28 +161,8 @@
     <script src="client.js"></script>
     
     <script>
-        // URL 파라미터 확인하여 역할에 따라 UI 조정
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
-            const role = urlParams.get('role');
-            
-            // role이 teacher인 경우에만 교사 링크 표시
-            if (role === 'teacher') {
-                document.getElementById('teacher-link').style.display = 'block';
-            } else {
-                document.getElementById('teacher-link').style.display = 'none';
-            }
-            
-            // 게임 코드로 자동 참가
-            const gameId = urlParams.get('gameId');
-            const name = urlParams.get('name');
-            
-            if (gameId && name) {
-                document.getElementById('join-game-id-input').value = gameId;
-                document.getElementById('join-player-name-input').value = decodeURIComponent(name);
-                // 자동으로 참가
-                setTimeout(() => joinGameFromStart(), 500);
-            }
         });
     </script>
 </body>

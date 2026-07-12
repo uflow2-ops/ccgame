@@ -820,10 +820,10 @@
                         <div class="student-name">👤 ${student.name}</div>
                         <div class="student-details">
                             접속 시간: ${student.connectTime} | 
-                            ${student.gameId ? `게임 코드: ${student.gameId}` : '게임 미참가'}
+                            ${student.sessionId ? `세션: ${student.sessionId}` : '세션 미참가'}
                         </div>
                     </div>
-                    <span class="student-status ${student.status === '게임 참가' ? 'playing' : ''}">
+                    <span class="student-status ${student.status === '세션 참가' ? 'playing' : ''}">
                         ${student.status}
                     </span>
                 </div>
@@ -832,7 +832,7 @@
         
         // Socket 이벤트 핸들러
         socket.on('sessionCreated', (data) => {
-            showMessage(`세션이 생성되었습니다! 코드: ${data.gameId}`, 'success');
+            showMessage(`세션이 생성되었습니다! 코드: ${data.sessionId}`, 'success');
             loadSessions();
         });
         

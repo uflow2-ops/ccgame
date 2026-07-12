@@ -635,18 +635,24 @@ io.on('connection', (socket) => {
                 
                 games[gameId].players.push(player);
                 
-                // 학생을 게임 방에 참가시킴 (io.to를 사용하여 해당 학생에게만 전송)
-                io.to(student.id).sockets.join(gameId);
+                // 학생의 소켓을 가져와서 게임 방에 참가시킴
+                const studentSocket = io.sockets.sockets.get(student.id);
+                if (studentSocket) {
+                    studentSocket.join(gameId);
+                    studentSocket.gameId = gameId;
+                }
                 
                 // 역할 전송
                 if (index === spyIndex) {
                     io.to(student.id).emit('spyRole', {
+                        gameId: gameId,
                         message: '당신은 스파이입니다! 다른 플레이어들이 어떤 장소를 받았는지 추리해보세요.'
                     });
                 } else {
                     player.location = citizenLocations[locationIndex];
                     locationIndex++;
                     io.to(student.id).emit('citizenRole', {
+                        gameId: gameId,
                         location: player.location,
                         message: `당신의 장소는 ${player.location.emoji} ${player.location.name}입니다. 이 장소에 대한 설명을 작성해주세요.`
                     });
