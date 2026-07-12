@@ -6,9 +6,13 @@
     -webkit-tap-highlight-color: transparent;
 }
 
+html, body {
+    height: 100%;
+    overflow-x: hidden;
+}
+
 body {
     font-family: '맑은 고딕', 'Malgun Gothic', sans-serif;
-    overflow: hidden;
     touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
@@ -406,6 +410,13 @@ body {
     background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
     flex-direction: column;
     padding: 20px;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+#write-screen.active {
+    display: flex;
+    align-items: flex-start;
 }
 
 .write-content {
@@ -415,6 +426,8 @@ body {
     box-shadow: 0 10px 40px rgba(0,0,0,0.2);
     max-width: 800px;
     width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .write-title {
@@ -478,6 +491,7 @@ body {
     background: #f8f9fa;
     border-radius: 15px;
     border: 2px solid #e9ecef;
+    -webkit-overflow-scrolling: touch;
 }
 
 .chat-bubble {
@@ -686,8 +700,8 @@ body {
 }
 
 .vote-option {
-    padding: 20px;
-    font-size: 1.5rem;
+    padding: 15px;
+    font-size: 1.3rem;
     font-weight: bold;
     color: #fff;
     background: linear-gradient(145deg, #74b9ff, #0984e3);
@@ -697,10 +711,25 @@ body {
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     transition: all 0.3s ease;
     font-family: '맑은 고딕', 'Malgun Gothic', sans-serif;
+    text-align: left;
 }
 
 .vote-option:active {
     transform: scale(0.95);
+}
+
+.vote-player-name {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 5px;
+}
+
+.vote-player-desc {
+    font-size: 0.9rem;
+    color: #e0e0ff;
+    line-height: 1.4;
+    word-break: break-word;
 }
 
 /* 결과 화면 */
@@ -1104,6 +1133,8 @@ body {
     /* 설명 작성 모바일 */
     .write-content {
         padding: 25px;
+        max-height: 90vh;
+        overflow-y: auto;
     }
     
     .write-title {
@@ -1156,8 +1187,16 @@ body {
     }
     
     .vote-option {
-        padding: 15px;
-        font-size: 1.2rem;
+        padding: 12px;
+        font-size: 1.1rem;
+    }
+    
+    .vote-player-name {
+        font-size: 1.1rem;
+    }
+    
+    .vote-player-desc {
+        font-size: 0.8rem;
     }
 }
 

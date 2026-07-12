@@ -239,6 +239,93 @@
             margin-top: 10px;
         }
         
+        /* Game time setting */
+        .game-time-setting {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 2px dashed #e67e22;
+        }
+        
+        .game-time-setting h3 {
+            color: #2c3e50;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .time-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .time-btn {
+            flex: 1;
+            min-width: 80px;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: 2px solid #e67e22;
+            background: white;
+            color: #e67e22;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .time-btn:hover {
+            background: #e67e22;
+            color: white;
+        }
+        
+        .time-btn.active {
+            background: #e67e22;
+            color: white;
+        }
+        
+        .time-btn.custom {
+            flex: 2;
+            min-width: 120px;
+        }
+        
+        .time-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .time-input-group input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #dfe6e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            text-align: center;
+        }
+        
+        .time-input-group input:focus {
+            outline: none;
+            border-color: #e67e22;
+        }
+        
+        .time-input-group .btn {
+            flex: 0 0 auto;
+            padding: 10px 20px;
+        }
+        
+        .time-display {
+            text-align: center;
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+        
         /* Progress bars */
         .room-progress {
             margin: 15px 0;
@@ -275,6 +362,14 @@
             }
             
             .teacher-input-group {
+                flex-direction: column;
+            }
+            
+            .time-buttons {
+                flex-direction: column;
+            }
+            
+            .time-input-group {
                 flex-direction: column;
             }
         }
@@ -321,6 +416,23 @@
                 </div>
             </div>
             
+            <!-- 게임 시간 설정 -->
+            <div class="game-time-setting">
+                <h3>⏱️ 게임 시간 설정</h3>
+                <div class="time-buttons">
+                    <button class="time-btn" onclick="setGameTime(1)" data-minutes="1">1분</button>
+                    <button class="time-btn" onclick="setGameTime(2)" data-minutes="2">2분</button>
+                    <button class="time-btn" onclick="setGameTime(3)" data-minutes="3">3분</button>
+                    <button class="time-btn" onclick="setGameTime(5)" data-minutes="5">5분</button>
+                    <button class="time-btn" onclick="setGameTime(10)" data-minutes="10">10분</button>
+                </div>
+                <div class="time-input-group">
+                    <input type="number" id="custom-time-input" placeholder="직접 입력 (분)" min="1" max="60">
+                    <button class="btn btn-primary" onclick="setCustomGameTime()">설정</button>
+                </div>
+                <p class="time-display" id="time-display">설정된 시간: 없음 (학생들이 모두 설명을 작성하면 바로 투표로 넘어갑니다)</p>
+            </div>
+            
             <div id="teacher-lobby-section">
                 <h3>📋 로비 참가자 목록</h3>
                 <div id="teacher-lobby-list" class="teacher-lobby-list">
@@ -351,6 +463,32 @@
         const socket = io();
         let teacherName = '';
         let isSessionActive = false;
+        let gameTimeMinutes = 0; // 0 means no time limit (all descriptions submitted)
+        
+        // ==================== 로컬스토리지 관리 ====================
+        function saveTeacherInfo() {
+            if (teacherName) {
+                localStorage.setItem('teacherInfo', JSON.stringify({
+                    teacherName: teacherName
+                }));
+            }
+        }
+        
+        function loadTeacherInfo() {
+            const saved = localStorage.getItem('teacherInfo');
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+        
+        function clearTeacherInfo() {
+            localStorage.removeItem('teacherInfo');
+        }
         
         // ==================== 메시지 ====================
         function showMessage(message, type) {
@@ -364,6 +502,44 @@
             }, 5000);
         }
         
+        // ==================== 게임 시간 설정 ====================
+        function setGameTime(minutes) {
+            gameTimeMinutes = minutes;
+            
+            // 버튼 활성화 상태 업데이트
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 직접 입력 필드 초기화
+            document.getElementById('custom-time-input').value = '';
+            
+            // 표시 업데이트
+            document.getElementById('time-display').textContent = 
+                `설정된 시간: ${minutes}분`;
+        }
+        
+        function setCustomGameTime() {
+            const customMinutes = parseInt(document.getElementById('custom-time-input').value);
+            
+            if (isNaN(customMinutes) || customMinutes < 1 || customMinutes > 60) {
+                showMessage('1분에서 60분 사이의 시간을 입력해주세요.', 'error');
+                return;
+            }
+            
+            gameTimeMinutes = customMinutes;
+            
+            // 버튼 활성화 상태 업데이트
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 표시 업데이트
+            document.getElementById('time-display').textContent = 
+                `설정된 시간: ${customMinutes}분`;
+        }
+        
         // ==================== 교사 세션 시작 ====================
         function startTeacherSession() {
             const name = document.getElementById('teacher-name-input').value.trim();
@@ -374,6 +550,7 @@
             }
             
             teacherName = name;
+            saveTeacherInfo();
             socket.emit('teacherStartSession', name);
         }
         
@@ -430,7 +607,7 @@
             startBtn.disabled = true;
             startBtn.textContent = '⏳ 게임 시작 중...';
             
-            socket.emit('teacherStartGame');
+            socket.emit('teacherStartGame', { gameTimeMinutes: gameTimeMinutes });
         }
         
         // 게임 시작됨 (교사용)
@@ -471,9 +648,80 @@
             startBtn.textContent = '🎯 게임 시작하기';
         });
         
-        // ==================== 게임 진행 중 업데이트 ====================
-        socket.on('gameStarted', () => {
-            showMessage('게임이 시작되었습니다!', 'success');
+        // ==================== 교사 재접속 처리 ====================
+        socket.on('rejoinTeacherSuccess', (data) => {
+            isSessionActive = true;
+            document.getElementById('teacher-login-section').style.display = 'none';
+            document.getElementById('teacher-dashboard').style.display = 'block';
+            
+            // 로비 참가자 복구
+            const listEl = document.getElementById('teacher-lobby-list');
+            const startBtn = document.getElementById('teacher-start-btn');
+            
+            document.getElementById('teacher-total-players').textContent = data.lobbyPlayers.length;
+            const roomsNeeded = Math.ceil(data.lobbyPlayers.length / 5);
+            document.getElementById('teacher-rooms-count').textContent = roomsNeeded;
+            startBtn.disabled = data.lobbyPlayers.length < 2;
+            
+            if (data.lobbyPlayers.length === 0) {
+                listEl.innerHTML = `
+                    <div class="teacher-empty-state">
+                        <div class="empty-icon">👤</div>
+                        <p>아직 참가자가 없습니다.<br>학생들이 로비에 입장할 때까지 기다려주세요.</p>
+                    </div>
+                `;
+            } else {
+                listEl.innerHTML = '';
+                data.lobbyPlayers.forEach((player, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'teacher-player-item';
+                    item.innerHTML = `
+                        <span class="player-emoji">👤</span>
+                        <span class="player-name">${player.name}</span>
+                        <span class="player-number">#${index + 1}</span>
+                    `;
+                    listEl.appendChild(item);
+                });
+            }
+            
+            // 게임 상태 복구
+            if (data.games && data.games.length > 0) {
+                document.getElementById('teacher-game-status').style.display = 'block';
+                const progressEl = document.getElementById('teacher-room-progress');
+                progressEl.innerHTML = '';
+                
+                data.games.forEach((game, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'room-progress-item';
+                    item.innerHTML = `
+                        <span class="room-name">📦 ${index + 1}번 방</span>
+                        <span class="room-status">🎮 게임 진행 중...</span>
+                    `;
+                    progressEl.appendChild(item);
+                });
+            }
+            
+            showMessage('세션에 다시 연결되었습니다!', 'success');
+        });
+        
+        socket.on('rejoinTeacherFailed', (data) => {
+            clearTeacherInfo();
+            showMessage(data.message + ' 다시 로그인해주세요.', 'error');
+        });
+        
+        // ==================== 페이지 로드 시 재접속 시도 ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTeacherInfo = loadTeacherInfo();
+            if (savedTeacherInfo && savedTeacherInfo.teacherName) {
+                teacherName = savedTeacherInfo.teacherName;
+                document.getElementById('teacher-name-input').value = teacherName;
+                
+                socket.on('connect', function() {
+                    socket.emit('rejoinTeacherSession', {
+                        teacherName: teacherName
+                    });
+                });
+            }
         });
     </script>
 </body>

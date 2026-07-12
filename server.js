@@ -356,6 +356,103 @@ app.put('/api/locations/:id', upload.single('image'), async (req, res) => {
 io.on('connection', (socket) => {
     console.log('새로운 플레이어 연결:', socket.id);
 
+    // ==================== 재접속 처리 ====================
+    
+    // 교사 재접속 요청
+    socket.on('rejoinTeacherSession', (data) => {
+        const { teacherName } = data;
+        
+        // 교사 세션이 존재하는지 확인
+        if (!teacherSession) {
+            socket.emit('rejoinTeacherFailed', { message: '교사 세션이 존재하지 않습니다.' });
+            return;
+        }
+        
+        // 교사 이름이 일치하는지 확인
+        if (teacherSession.teacherName !== teacherName) {
+            socket.emit('rejoinTeacherFailed', { message: '교사 이름이 일치하지 않습니다.' });
+            return;
+        }
+        
+        // 교사 세션 복구
+        teacherSession.teacherId = socket.id;
+        socket.join('lobby');
+        socket.emit('rejoinTeacherSuccess', {
+            teacherId: socket.id,
+            teacherName: teacherName,
+            lobbyPlayers: lobbyPlayers.map(p => ({ id: p.id, name: p.name })),
+            games: Object.values(games).map(game => ({
+                gameId: game.id,
+                playerCount: game.players.length,
+                status: game.status
+            }))
+        });
+        
+        console.log(`교사 ${teacherName}이 세션에 재접속했습니다.`);
+    });
+    
+    // 학생이 게임 재접속 요청
+    socket.on('rejoinGame', (data) => {
+        const { gameId, playerName } = data;
+        
+        // 게임이 존재하는지 확인
+        if (!games[gameId]) {
+            socket.emit('rejoinFailed', { message: '게임을 찾을 수 없습니다.' });
+            return;
+        }
+        
+        const game = games[gameId];
+        
+        // 플레이어가 이미 게임에 참가했는지 확인 (이름으로 매칭)
+        const existingPlayer = game.players.find(p => p.name === playerName);
+        
+        if (!existingPlayer) {
+            socket.emit('rejoinFailed', { message: '해당 게임에 참가한 기록이 없습니다.' });
+            return;
+        }
+        
+        // 게임이 이미 종료되었는지 확인
+        if (game.status === 'ended') {
+            socket.emit('rejoinFailed', { message: '이미 종료된 게임입니다.' });
+            return;
+        }
+        
+        // 소켓 정보 업데이트 (기존 플레이어 정보 유지)
+        const oldSocketId = existingPlayer.id;
+        existingPlayer.id = socket.id; // 새로운 socket.id로 업데이트
+        
+        // 소켓 방 입장
+        socket.join(gameId);
+        socket.gameId = gameId;
+        socket.playerName = playerName;
+        socket.inGame = true;
+        
+        // 재접속 성공 - 게임 상태 복구
+        socket.emit('rejoinSuccess', {
+            gameId: gameId,
+            playerName: playerName,
+            role: existingPlayer.isSpy ? 'spy' : 'citizen',
+            location: existingPlayer.isSpy ? null : existingPlayer.location,
+            gameStatus: game.status,
+            hasWritten: existingPlayer.hasWritten || false,
+            players: game.players.map(p => ({
+                id: p.id,
+                name: p.name,
+                isSpy: p.isSpy
+            })),
+            descriptions: game.descriptions || {},
+            votes: game.votes || {}
+        });
+        
+        // 방 전체에 재접속 알림
+        io.to(gameId).emit('playerRejoined', {
+            playerName: playerName,
+            playerId: socket.id
+        });
+        
+        console.log(`플레이어 ${playerName}이 게임 ${gameId}에 재접속했습니다. (이전 socket.id: ${oldSocketId})`);
+    });
+
     // ==================== 로비 시스템 ====================
 
     // 학생이 로비에 입장
@@ -384,7 +481,7 @@ io.on('connection', (socket) => {
     });
 
     // 교사가 게임 시작 (로비 플레이어들을 방으로 자동 분배)
-    socket.on('teacherStartGame', () => {
+    socket.on('teacherStartGame', (data) => {
         if (!teacherSession || teacherSession.teacherId !== socket.id) {
             socket.emit('error', '교사만 게임을 시작할 수 있습니다.');
             return;
@@ -394,6 +491,8 @@ io.on('connection', (socket) => {
             socket.emit('error', '최소 2명의 플레이어가 필요합니다.');
             return;
         }
+        
+        const gameTimeMinutes = data && data.gameTimeMinutes ? data.gameTimeMinutes : 0;
         
         // 로비 플레이어 섞기
         const shuffled = [...lobbyPlayers].sort(() => Math.random() - 0.5);
@@ -420,7 +519,9 @@ io.on('connection', (socket) => {
                 completionTimes: {},
                 votes: {},
                 hostId: socket.id,
-                teacherSessionId: teacherSession.teacherId
+                teacherSessionId: teacherSession.teacherId,
+                gameTimeMinutes: gameTimeMinutes,
+                timeEndTime: null
             };
             
             roomPlayers.forEach(p => {
@@ -462,15 +563,22 @@ io.on('connection', (socket) => {
             const assignedLocation = shuffledLocations[0];
             game.assignedLocation = assignedLocation;
             
+            // 시간이 설정된 경우 종료 시간 설정
+            if (gameTimeMinutes > 0) {
+                game.timeEndTime = Date.now() + (gameTimeMinutes * 60 * 1000);
+            }
+            
             game.players.forEach(player => {
                 if (player.id === game.spyId) {
                     player.location = null;
                     io.to(player.id).emit('spyRole', {
+                        gameId: gameId,
                         message: '당신은 스파이입니다! 다른 플레이어들이 어떤 장소를 받았는지 추리해보세요.'
                     });
                 } else {
                     player.location = assignedLocation;
                     io.to(player.id).emit('citizenRole', {
+                        gameId: gameId,
                         location: assignedLocation,
                         message: `당신의 장소는 ${assignedLocation.emoji} ${assignedLocation.name}입니다. 이 장소에 대한 설명을 작성해주세요.`
                     });
@@ -478,7 +586,9 @@ io.on('connection', (socket) => {
             });
             
             io.to(gameId).emit('gameStarted', { 
-                playerCount: game.players.length 
+                gameId: gameId,
+                playerCount: game.players.length,
+                gameTimeMinutes: gameTimeMinutes
             });
         });
         
@@ -523,12 +633,14 @@ io.on('connection', (socket) => {
             
             io.to(gameId).emit('allDescriptionsSubmitted', descriptionsList);
             
+            // 설명을 복구할 수 있도록 descriptions도 전달
             setTimeout(() => {
                 io.to(gameId).emit('votingPhase', {
                     players: game.players.map(p => ({
                         id: p.id,
                         name: p.name
-                    }))
+                    })),
+                    descriptions: game.descriptions
                 });
             }, 2000);
         } else {
@@ -665,23 +777,42 @@ io.on('connection', (socket) => {
             }
         }
         
-        // 게임 방에서 제거
+        // 게임 방에서 제거 (재접속 가능하도록 즉시 삭제하지 않음)
         Object.keys(games).forEach(gameId => {
             const game = games[gameId];
             const playerIndex = game.players.findIndex(p => p.id === socket.id);
             
             if (playerIndex !== -1) {
-                const playerName = game.players[playerIndex].name;
-                game.players.splice(playerIndex, 1);
+                // 플레이어를 즉시 제거하지 않고, 재접속 대기 상태로 유지
+                // 5분간 재접속 기회 제공
+                const player = game.players[playerIndex];
+                player.disconnected = true;
+                player.disconnectedAt = Date.now();
                 
-                io.to(gameId).emit('playerLeft', { 
-                    playerName, 
-                    playerCount: game.players.length 
+                // 방 전체에게 재접속 가능함을 알림
+                io.to(gameId).emit('playerDisconnected', { 
+                    playerName: player.name,
+                    playerCount: game.players.length,
+                    canReconnect: true
                 });
                 
-                if (game.players.length === 0) {
-                    delete games[gameId];
-                }
+                // 5분 후 자동 제거
+                setTimeout(() => {
+                    const currentPlayerIndex = game.players.findIndex(p => p.id === socket.id);
+                    if (currentPlayerIndex !== -1 && game.players[currentPlayerIndex].disconnected) {
+                        const playerName = game.players[currentPlayerIndex].name;
+                        game.players.splice(currentPlayerIndex, 1);
+                        
+                        io.to(gameId).emit('playerLeft', { 
+                            playerName, 
+                            playerCount: game.players.length 
+                        });
+                        
+                        if (game.players.length === 0) {
+                            delete games[gameId];
+                        }
+                    }
+                }, 5 * 60 * 1000); // 5분
             }
         });
         
