@@ -258,7 +258,7 @@ io.on('connection', (socket) => {
 
     // 게임 생성
     socket.on('createGame', (playerName) => {
-        const gameId = uuidv4().substring(0, 6);
+        const gameId = Math.floor(100000 + Math.random() * 900000).toString();
         games[gameId] = {
             id: gameId,
             players: [],
@@ -289,19 +289,23 @@ io.on('connection', (socket) => {
 
     // 게임 참가
     socket.on('joinGame', ({ gameId, playerName }) => {
-        if (!games[gameId]) {
+        // 대소문자 구분 없이 게임 검색
+        const gameIdUpper = gameId.toUpperCase();
+        const foundGameId = Object.keys(games).find(id => id.toUpperCase() === gameIdUpper);
+        
+        if (!foundGameId) {
             socket.emit('error', '게임을 찾을 수 없습니다.');
             return;
         }
         
-        const game = games[gameId];
+        const game = games[foundGameId];
         
         if (game.status !== 'waiting') {
             socket.emit('error', '이미 게임이 시작되었습니다.');
             return;
         }
         
-        let targetGameId = gameId;
+        let targetGameId = foundGameId;
         if (game.players.length >= MAX_PLAYERS_PER_ROOM) {
             const hostGames = Object.values(games).filter(g => 
                 g.hostId === game.hostId && 
@@ -316,7 +320,7 @@ io.on('connection', (socket) => {
                     message: `방이 꽉 차서 자동으로 다른 방(${targetGameId})에 배정되었습니다.`
                 });
             } else {
-                const newGameId = uuidv4().substring(0, 6);
+                const newGameId = Math.floor(100000 + Math.random() * 900000).toString();
                 games[newGameId] = {
                     id: newGameId,
                     players: [],
@@ -527,7 +531,7 @@ io.on('connection', (socket) => {
 
     // 교사용: 방 생성
     socket.on('teacherCreateRoom', () => {
-        const gameId = uuidv4().substring(0, 6);
+        const gameId = Math.floor(100000 + Math.random() * 900000).toString();
         games[gameId] = {
             id: gameId,
             players: [],

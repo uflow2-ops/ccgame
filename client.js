@@ -43,7 +43,7 @@ function showScreen(screenId) {
 
 // ==================== 게임 생성 ====================
 function createGame() {
-    const playerName = document.getElementById('player-name').value.trim();
+    const playerName = document.getElementById('create-player-name').value.trim();
     
     if (!playerName) {
         showPopup('이름을 입력해주세요!');
@@ -54,9 +54,15 @@ function createGame() {
     socket.emit('createGame', playerName);
 }
 
-// ==================== 게임 참가 ====================
-function showJoinModal() {
-    const playerName = document.getElementById('player-name').value.trim();
+// ==================== 게임 참가 (시작 화면에서) ====================
+function joinGameFromStart() {
+    const gameId = document.getElementById('join-game-id-input').value.trim();
+    const playerName = document.getElementById('join-player-name-input').value.trim();
+    
+    if (!gameId) {
+        showPopup('게임 코드를 입력해주세요!');
+        return;
+    }
     
     if (!playerName) {
         showPopup('이름을 입력해주세요!');
@@ -64,25 +70,9 @@ function showJoinModal() {
     }
     
     gameState.playerName = playerName;
-    document.getElementById('join-modal').style.display = 'flex';
-}
-
-function closeJoinModal() {
-    document.getElementById('join-modal').style.display = 'none';
-}
-
-function joinGame() {
-    const gameId = document.getElementById('join-game-id').value.trim().toUpperCase();
-    const playerName = gameState.playerName;
-    
-    if (!gameId) {
-        showPopup('게임 코드를 입력해주세요!');
-        return;
-    }
-    
     socket.emit('joinGame', { gameId, playerName });
-    closeJoinModal();
 }
+
 
 // ==================== 게임 시작 ====================
 function startGame() {
@@ -329,41 +319,27 @@ document.addEventListener('DOMContentLoaded', function() {
     setupRoleBasedUI();
     
     // 엔터키로 게임 생성/참가
-    document.getElementById('player-name').addEventListener('keypress', function(e) {
+    document.getElementById('create-player-name').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             createGame();
         }
     });
     
-    document.getElementById('join-game-id').addEventListener('keypress', function(e) {
+    document.getElementById('join-game-id-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
-            joinGame();
+            joinGameFromStart();
         }
     });
     
-    document.getElementById('join-player-name').addEventListener('keypress', function(e) {
+    document.getElementById('join-player-name-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
-            joinGame();
+            joinGameFromStart();
         }
     });
     
-    // 모달 외부 클릭 시 닫기
-    window.onclick = function(event) {
-        const joinModal = document.getElementById('join-modal');
-        const popup = document.getElementById('popup');
-        
-        if (event.target === joinModal) {
-            closeJoinModal();
-        }
-        if (event.target === popup) {
-            closePopup();
-        }
-    }
-    
-    // ESC 키로 모달/팝업 닫기
+    // ESC 키로 팝업 닫기
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
-            closeJoinModal();
             closePopup();
         }
     });

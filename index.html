@@ -16,11 +16,21 @@
             <p class="intro-text">춘천의 장소를 맞춰보세요!</p>
             
             <div class="login-form">
-                <input type="text" id="player-name" placeholder="이름을 입력하세요" maxlength="10" class="name-input">
-                <div class="button-group" id="button-group">
-                    <button class="big-button" id="create-button" onclick="createGame()">새 게임 만들기</button>
-                    <button class="big-button secondary-button" id="join-button" onclick="showJoinModal()">게임 참가하기</button>
+                <div class="form-section">
+                    <h3 class="form-title">🎮 새 게임 만들기</h3>
+                    <input type="text" id="create-player-name" placeholder="이름을 입력하세요" maxlength="10" class="name-input">
+                    <button class="big-button" id="create-button" onclick="createGame()">게임 만들기</button>
                 </div>
+                
+                <div class="form-divider"></div>
+                
+                <div class="form-section">
+                    <h3 class="form-title">🎯 게임 참가하기</h3>
+                    <input type="text" id="join-game-id-input" placeholder="게임 코드 (숫자 6자리)" maxlength="6" class="game-code-input">
+                    <input type="text" id="join-player-name-input" placeholder="이름을 입력하세요" maxlength="10" class="name-input">
+                    <button class="big-button secondary-button" onclick="joinGameFromStart()">참가하기</button>
+                </div>
+                
                 <div id="teacher-link" class="teacher-link" style="display: none;">
                     <a href="teacher.html" class="teacher-button">교사용 페이지로 이동</a>
                 </div>
@@ -134,18 +144,6 @@
         </div>
     </div>
 
-    <!-- 참가 모달 -->
-    <div id="join-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h2 class="modal-title">게임 참가</h2>
-            <input type="text" id="join-game-id" placeholder="게임 코드 입력" maxlength="6" class="modal-input">
-            <input type="text" id="join-player-name" placeholder="이름 입력" maxlength="10" class="modal-input">
-            <div class="modal-buttons">
-                <button class="big-button" onclick="joinGame()">참가하기</button>
-                <button class="big-button secondary-button" onclick="closeJoinModal()">취소</button>
-            </div>
-        </div>
-    </div>
 
     <!-- 팝업 메시지 -->
     <div id="popup" class="popup" style="display: none;">
