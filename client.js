@@ -12,6 +12,26 @@ let gameState = {
     hasWritten: false
 };
 
+// ==================== 역할 기반 UI 설정 ====================
+function setupRoleBasedUI() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const role = urlParams.get('role'); // 'teacher' or 'student'
+    
+    const createButton = document.getElementById('create-button');
+    const buttonGroup = document.getElementById('button-group');
+    
+    if (role === 'student') {
+        // 학생용: 게임 만들기 버튼 숨김
+        createButton.style.display = 'none';
+    } else if (role === 'teacher') {
+        // 교사용: 둘 다 표시 (기본값)
+        createButton.style.display = 'block';
+    } else {
+        // role 파라미터가 없으면 기본값 (둘 다 표시)
+        createButton.style.display = 'block';
+    }
+}
+
 // ==================== 화면 관리 ====================
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(screen => {
@@ -299,6 +319,9 @@ socket.on('error', (message) => {
 
 // ==================== 이벤트 리스너 ====================
 document.addEventListener('DOMContentLoaded', function() {
+    // 역할 기반 UI 설정
+    setupRoleBasedUI();
+    
     // 엔터키로 게임 생성/참가
     document.getElementById('player-name').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {

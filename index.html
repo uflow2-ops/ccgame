@@ -18,9 +18,9 @@
             
             <div class="login-form">
                 <input type="text" id="player-name" placeholder="이름을 입력하세요" maxlength="10" class="name-input">
-                <div class="button-group">
-                    <button class="big-button" onclick="createGame()">새 게임 만들기</button>
-                    <button class="big-button secondary-button" onclick="showJoinModal()">게임 참가하기</button>
+                <div class="button-group" id="button-group">
+                    <button class="big-button" id="create-button" onclick="createGame()">새 게임 만들기</button>
+                    <button class="big-button secondary-button" id="join-button" onclick="showJoinModal()">게임 참가하기</button>
                 </div>
             </div>
         </div>
