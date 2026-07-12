@@ -1,0 +1,58 @@
+[
+    {
+        "id": "1",
+        "name": "남춘천역",
+        "emoji": "🚉",
+        "description": "춘천의 교통 중심지",
+        "image": null
+    },
+    {
+        "id": "2",
+        "name": "공지천",
+        "emoji": "💧",
+        "description": "춘천의 아름다운 자연 호수",
+        "image": null
+    },
+    {
+        "id": "3",
+        "name": "소양강 스카이워크",
+        "emoji": "🌉",
+        "description": "소양강 위를 걷는 짜릿한 하늘길",
+        "image": null
+    },
+    {
+        "id": "4",
+        "name": "닭갈비 골목",
+        "emoji": "🍗",
+        "description": "춘천의 대표 음식 맛집 거리",
+        "image": null
+    },
+    {
+        "id": "5",
+        "name": "춘천시청",
+        "emoji": "🏛️",
+        "description": "춘천의 행정 중심지",
+        "image": null
+    },
+    {
+        "id": "6",
+        "name": "무궁화 타워",
+        "emoji": "🌸",
+        "description": "춘천의 상징 탑",
+        "image": null
+    },
+    {
+        "id": "7",
+        "name": "김유정 문학촌",
+        "emoji": "📚",
+        "description": "작가 김유정의 생가와 문학 공간",
+        "image": null
+    },
+    {
+        "id": "8",
+        "name": "춘천 호수",
+        "emoji": "🏞️",
+        "description": "아름다운 경관의 인공 호수",
+        "image": null
+    }
+]

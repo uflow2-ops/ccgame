@@ -3,6 +3,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,27 +13,217 @@ const io = new Server(server);
 // 정적 파일 제공
 app.use(express.static(path.join(__dirname)));
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// 파일 업로드 설정
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadDir = 'uploads';
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir);
+        }
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
+        cb(null, uniqueName);
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|gif/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+        
+        if (extname && mimetype) {
+            return cb(null, true);
+        } else {
+            cb(new Error('이미지 파일만 업로드 가능합니다.'));
+        }
+    }
+});
 
 // 게임 상태 저장
 const games = {};
 
 // 게임 설정
-const MAX_PLAYERS_PER_ROOM = 5;  // 방당 최대 인원 (5명으로 변경)
-const MIN_PLAYERS_TO_START = 2;  // 게임 시작 최소 인원
+const MAX_PLAYERS_PER_ROOM = 5;
+const MIN_PLAYERS_TO_START = 2;
 
-// 춘천 장소 데이터
-const chuncheonLocations = [
-    { name: '남춘천역', emoji: '🚉', description: '춘천의 중심 교통枢纽' },
-    { name: '공지천', emoji: '💧', description: '춘천의 아름다운 자연 호수' },
-    { name: '소양강 스카이워크', emoji: '🌉', description: '소양강 위를 걷는 짜릿한 하늘길' },
-    { name: '닭갈비 골목', emoji: '🍗', description: '춘천의 대표 음식 맛집 거리' },
-    { name: '춘천시청', emoji: '🏛️', description: '춘천의 행정 중심지' },
-    { name: '무궁화 타워', emoji: '🌸', description: '춘천의 상징 탑' },
-    { name: '김유정 문학촌', emoji: '📚', description: '작가 김유정의 생가와 문학 공간' },
-    { name: '춘천 호수', emoji: '🏞️', description: '아름다운 경관의 인공 호수' }
+// 장소 데이터 파일 경로
+const LOCATIONS_FILE = path.join(__dirname, 'locations.json');
+
+// locations.json에서 장소 데이터 로드
+function loadLocations() {
+    try {
+        if (fs.existsSync(LOCATIONS_FILE)) {
+            const data = fs.readFileSync(LOCATIONS_FILE, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (error) {
+        console.error('장소 데이터 로드 실패:', error);
+    }
+    return [];
+}
+
+// locations.json에 장소 데이터 저장
+function saveLocations(locations) {
+    try {
+        fs.writeFileSync(LOCATIONS_FILE, JSON.stringify(locations, null, 2), 'utf8');
+        return true;
+    } catch (error) {
+        console.error('장소 데이터 저장 실패:', error);
+        return false;
+    }
+}
+
+// 기본 춘천 장소 데이터
+const defaultChuncheonLocations = [
+    { id: '1', name: '남춘천역', emoji: '🚉', description: '춘천의 교통 중심지', image: null },
+    { id: '2', name: '공지천', emoji: '💧', description: '춘천의 아름다운 자연 호수', image: null },
+    { id: '3', name: '소양강 스카이워크', emoji: '🌉', description: '소양강 위를 걷는 짜릿한 하늘길', image: null },
+    { id: '4', name: '닭갈비 골목', emoji: '🍗', description: '춘천의 대표 음식 맛집 거리', image: null },
+    { id: '5', name: '춘천시청', emoji: '🏛️', description: '춘천의 행정 중심지', image: null },
+    { id: '6', name: '무궁화 타워', emoji: '🌸', description: '춘천의 상징 탑', image: null },
+    { id: '7', name: '김유정 문학촌', emoji: '📚', description: '작가 김유정의 생가와 문학 공간', image: null },
+    { id: '8', name: '춘천 호수', emoji: '🏞️', description: '아름다운 경관의 인공 호수', image: null }
 ];
 
-// Socket.io 연결 처리
+// 장소 데이터 초기화
+let chuncheonLocations = loadLocations();
+if (chuncheonLocations.length === 0) {
+    chuncheonLocations = [...defaultChuncheonLocations];
+    saveLocations(chuncheonLocations);
+}
+
+// ==================== 장소 관리 API ====================
+
+// 모든 장소 조회
+app.get('/api/locations', (req, res) => {
+    const locations = loadLocations();
+    res.json(locations);
+});
+
+// 장소 추가
+app.post('/api/locations', upload.single('image'), (req, res) => {
+    try {
+        const { name, description } = req.body;
+        const image = req.file;
+        
+        if (!name || !description) {
+            return res.status(400).json({ error: '장소 이름과 설명은 필수입니다.' });
+        }
+        
+        const locations = loadLocations();
+        
+        // 중복 이름 확인
+        if (locations.some(loc => loc.name === name)) {
+            return res.status(400).json({ error: '이미 존재하는 장소 이름입니다.' });
+        }
+        
+        const newId = Date.now().toString();
+        const newLocation = {
+            id: newId,
+            name: name,
+            emoji: '📍',
+            description: description,
+            image: image ? `/uploads/${image.filename}` : null
+        };
+        
+        locations.push(newLocation);
+        
+        if (saveLocations(locations)) {
+            chuncheonLocations = locations;
+            res.json({ 
+                success: true, 
+                location: newLocation,
+                message: '장소가 추가되었습니다.'
+            });
+        } else {
+            res.status(500).json({ error: '장소 저장에 실패했습니다.' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: '장소 추가 중 오류가 발생했습니다.' });
+    }
+});
+
+// 장소 삭제
+app.delete('/api/locations/:id', (req, res) => {
+    try {
+        const id = req.params.id;
+        let locations = loadLocations();
+        
+        const index = locations.findIndex(loc => loc.id === id);
+        
+        if (index !== -1) {
+            const deleted = locations[index];
+            
+            // 사진 파일 삭제
+            if (deleted.image) {
+                const photoPath = path.join(__dirname, deleted.image);
+                if (fs.existsSync(photoPath)) {
+                    fs.unlinkSync(photoPath);
+                }
+            }
+            
+            locations.splice(index, 1);
+            
+            if (saveLocations(locations)) {
+                chuncheonLocations = locations;
+                res.json({ 
+                    success: true, 
+                    location: deleted,
+                    message: '장소가 삭제되었습니다.'
+                });
+            } else {
+                res.status(500).json({ error: '장소 삭제에 실패했습니다.' });
+            }
+        } else {
+            res.status(404).json({ error: '장소를 찾을 수 없습니다.' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: '장소 삭제 중 오류가 발생했습니다.' });
+    }
+});
+
+// 장소 수정
+app.put('/api/locations/:id', upload.single('image'), (req, res) => {
+    try {
+        const id = req.params.id;
+        const { name, description } = req.body;
+        const image = req.file;
+        
+        let locations = loadLocations();
+        
+        const index = locations.findIndex(loc => loc.id === id);
+        
+        if (index !== -1) {
+            if (name) locations[index].name = name;
+            if (description) locations[index].description = description;
+            if (image) locations[index].image = `/uploads/${image.filename}`;
+            
+            if (saveLocations(locations)) {
+                chuncheonLocations = locations;
+                res.json({ 
+                    success: true, 
+                    location: locations[index],
+                    message: '장소가 수정되었습니다.'
+                });
+            } else {
+                res.status(500).json({ error: '장소 저장에 실패했습니다.' });
+            }
+        } else {
+            res.status(404).json({ error: '장소를 찾을 수 없습니다.' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: '장소 수정 중 오류가 발생했습니다.' });
+    }
+});
+
+// ==================== Socket.io 연결 처리 ====================
 io.on('connection', (socket) => {
     console.log('새로운 플레이어 연결:', socket.id);
 
@@ -41,7 +233,7 @@ io.on('connection', (socket) => {
         games[gameId] = {
             id: gameId,
             players: [],
-            status: 'waiting', // waiting, playing, voting, ended
+            status: 'waiting',
             spyId: null,
             locations: [],
             descriptions: {},
@@ -66,9 +258,8 @@ io.on('connection', (socket) => {
         io.to(gameId).emit('playerJoined', { playerName, playerCount: games[gameId].players.length });
     });
 
-    // 게임 참가 (자동 방 분배 기능)
+    // 게임 참가
     socket.on('joinGame', ({ gameId, playerName }) => {
-        // 해당 게임이 존재하는지 확인
         if (!games[gameId]) {
             socket.emit('error', '게임을 찾을 수 없습니다.');
             return;
@@ -76,16 +267,13 @@ io.on('connection', (socket) => {
         
         const game = games[gameId];
         
-        // 게임이 이미 시작되었는지 확인
         if (game.status !== 'waiting') {
             socket.emit('error', '이미 게임이 시작되었습니다.');
             return;
         }
         
-        // 방이 꽉 찼는지 확인
         let targetGameId = gameId;
         if (game.players.length >= MAX_PLAYERS_PER_ROOM) {
-            // 같은 호스트의 다른 방 찾기
             const hostGames = Object.values(games).filter(g => 
                 g.hostId === game.hostId && 
                 g.status === 'waiting' && 
@@ -93,14 +281,12 @@ io.on('connection', (socket) => {
             );
             
             if (hostGames.length > 0) {
-                // 여유 있는 방이 있으면 그 방에 배정
                 targetGameId = hostGames[0].id;
                 socket.emit('roomReassigned', { 
                     newGameId: targetGameId,
                     message: `방이 꽉 차서 자동으로 다른 방(${targetGameId})에 배정되었습니다.`
                 });
             } else {
-                // 여유 있는 방이 없으면 새 방 생성
                 const newGameId = uuidv4().substring(0, 6);
                 games[newGameId] = {
                     id: newGameId,
@@ -110,7 +296,7 @@ io.on('connection', (socket) => {
                     locations: [],
                     descriptions: {},
                     votes: {},
-                    hostId: game.hostId  // 같은 호스트
+                    hostId: game.hostId
                 };
                 
                 targetGameId = newGameId;
@@ -121,7 +307,6 @@ io.on('connection', (socket) => {
             }
         }
         
-        // 게임에 참가
         socket.join(targetGameId);
         socket.gameId = targetGameId;
         
@@ -170,7 +355,7 @@ io.on('connection', (socket) => {
         let locationIndex = 0;
         game.players.forEach(player => {
             if (player.id === game.spyId) {
-                player.location = null; // 스파이는 장소를 모름
+                player.location = null;
                 socket.to(player.id).emit('spyRole', {
                     message: '당신은 스파이입니다! 다른 플레이어들이 어떤 장소를 받았는지 추리해보세요.'
                 });
@@ -202,13 +387,11 @@ io.on('connection', (socket) => {
         player.hasWritten = true;
         game.descriptions[socket.id] = description;
         
-        // 모든 플레이어가 작성했는지 확인
         const allWritten = game.players.every(p => p.hasWritten);
         
         if (allWritten) {
             game.status = 'voting';
             
-            // 모든 설명을 모든 플레이어에게 전송
             const descriptionsList = game.players.map(p => ({
                 playerId: p.id,
                 playerName: p.name,
@@ -218,7 +401,6 @@ io.on('connection', (socket) => {
             
             io.to(gameId).emit('allDescriptionsSubmitted', descriptionsList);
             
-            // 투표 단계로 전환
             setTimeout(() => {
                 io.to(gameId).emit('votingPhase', {
                     players: game.players.map(p => ({
@@ -247,11 +429,9 @@ io.on('connection', (socket) => {
             game.votes[socket.id] = votedPlayerId;
         }
         
-        // 모든 투표가 완료되었는지 확인
         const allVoted = game.players.every(p => game.votes[p.id]);
         
         if (allVoted) {
-            // 투표 집계
             const voteCount = {};
             game.players.forEach(p => {
                 voteCount[p.id] = 0;
@@ -261,7 +441,6 @@ io.on('connection', (socket) => {
                 voteCount[votedId]++;
             });
             
-            // 가장 많은 표를 받은 사람 찾기
             let maxVotes = 0;
             let accusedPlayerId = null;
             Object.entries(voteCount).forEach(([playerId, count]) => {
@@ -274,7 +453,6 @@ io.on('connection', (socket) => {
             const accusedPlayer = game.players.find(p => p.id === accusedPlayerId);
             const spyPlayer = game.players.find(p => p.id === game.spyId);
             
-            // 승리 조건 확인
             const spyCaught = accusedPlayerId === game.spyId;
             
             game.status = 'ended';
@@ -303,7 +481,6 @@ io.on('connection', (socket) => {
         
         const game = games[gameId];
         
-        // 게임 상태 초기화
         game.status = 'waiting';
         game.spyId = null;
         game.locations = [];
@@ -323,7 +500,6 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('플레이어 연결 해제:', socket.id);
         
-        // 게임에서 플레이어 제거
         Object.keys(games).forEach(gameId => {
             const game = games[gameId];
             const playerIndex = game.players.findIndex(p => p.id === socket.id);
@@ -337,7 +513,6 @@ io.on('connection', (socket) => {
                     playerCount: game.players.length 
                 });
                 
-                // 플레이어가 없으면 게임 삭제
                 if (game.players.length === 0) {
                     delete games[gameId];
                 }
@@ -350,6 +525,17 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`춘천 스파이 게임 서버가 포트 ${PORT}에서 실행 중입니다.`);
     console.log(`로컬 접속: http://localhost:${PORT}`);
-    console.log(`네트워크 접속: http://192.168.0.152:${PORT}`);
-    console.log(`같은 WiFi에 연결된 기기에서 위 주소로 접속하세요!`);
+    console.log(`교사용 페이지: http://localhost:${PORT}/teacher.html`);
+    
+    // 로컬 IP 주소 표시
+    const interfaces = require('os').networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                console.log(`네트워크 접속: http://${iface.address}:${PORT}`);
+                console.log(`같은 WiFi에 연결된 기기에서 위 주소로 접속하세요!`);
+                break;
+            }
+        }
+    }
 });
