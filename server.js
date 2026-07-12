@@ -256,7 +256,7 @@ app.put('/api/locations/:id', upload.single('image'), (req, res) => {
 io.on('connection', (socket) => {
     console.log('새로운 플레이어 연결:', socket.id);
 
-    // 게임 생성
+    // 게임 생성 (학생용 - 플레이어로 참가)
     socket.on('createGame', (playerName) => {
         const gameId = Math.floor(100000 + Math.random() * 900000).toString();
         games[gameId] = {
@@ -266,6 +266,7 @@ io.on('connection', (socket) => {
             spyId: null,
             locations: [],
             descriptions: {},
+            completionTimes: {},
             votes: {},
             hostId: socket.id
         };
@@ -285,6 +286,29 @@ io.on('connection', (socket) => {
         
         socket.emit('gameCreated', { gameId, playerId: socket.id });
         io.to(gameId).emit('playerJoined', { playerName, playerCount: games[gameId].players.length });
+    });
+
+    // 게임 생성 (교사용 - 참가자 아님)
+    socket.on('createGameAsTeacher', (teacherName) => {
+        const gameId = Math.floor(100000 + Math.random() * 900000).toString();
+        games[gameId] = {
+            id: gameId,
+            players: [],
+            status: 'waiting',
+            spyId: null,
+            locations: [],
+            descriptions: {},
+            completionTimes: {},
+            votes: {},
+            hostId: socket.id,
+            teacherName: teacherName
+        };
+        
+        socket.join(gameId);
+        socket.gameId = gameId;
+        
+        socket.emit('gameCreatedAsTeacher', { gameId, teacherName });
+        io.to(gameId).emit('teacherJoined', { teacherName });
     });
 
     // 게임 참가
@@ -381,11 +405,11 @@ io.on('connection', (socket) => {
         game.spyId = game.players[spyIndex].id;
         game.players[spyIndex].isSpy = true;
         
-        // 장소 할당 (스파이 제외)
+        // 장소 할당: 모든 시민은 같은 장소를 받음
         const shuffledLocations = [...chuncheonLocations].sort(() => Math.random() - 0.5);
-        const citizenLocations = shuffledLocations.slice(0, game.players.length - 1);
+        const assignedLocation = shuffledLocations[0];
+        game.assignedLocation = assignedLocation;
         
-        let locationIndex = 0;
         game.players.forEach(player => {
             if (player.id === game.spyId) {
                 player.location = null;
@@ -393,11 +417,10 @@ io.on('connection', (socket) => {
                     message: '당신은 스파이입니다! 다른 플레이어들이 어떤 장소를 받았는지 추리해보세요.'
                 });
             } else {
-                player.location = citizenLocations[locationIndex];
-                locationIndex++;
+                player.location = assignedLocation;
                 socket.to(player.id).emit('citizenRole', {
-                    location: player.location,
-                    message: `당신의 장소는 ${player.location.emoji} ${player.location.name}입니다. 이 장소에 대한 설명을 작성해주세요.`
+                    location: assignedLocation,
+                    message: `당신의 장소는 ${assignedLocation.emoji} ${assignedLocation.name}입니다. 이 장소에 대한 설명을 작성해주세요.`
                 });
             }
         });
@@ -407,7 +430,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    // 설명 제출
+    // 설명 제출 (실시간 브로드캐스트)
     socket.on('submitDescription', (description) => {
         const gameId = socket.gameId;
         if (!games[gameId]) return;
@@ -420,6 +443,13 @@ io.on('connection', (socket) => {
         player.hasWritten = true;
         game.descriptions[socket.id] = description;
         game.completionTimes[socket.id] = Date.now(); // Track completion time
+        
+        // 실시간으로 설명을 방 전체에 브로드캐스트
+        io.to(gameId).emit('newDescription', {
+            playerId: player.id,
+            playerName: player.name,
+            description: description
+        });
         
         const allWritten = game.players.every(p => p.hasWritten);
         
@@ -448,7 +478,8 @@ io.on('connection', (socket) => {
             socket.emit('descriptionSubmitted');
             io.to(gameId).emit('waitingForDescriptions', {
                 writtenCount: game.players.filter(p => p.hasWritten).length,
-                totalCount: game.players.length
+                totalCount: game.players.length,
+                latestWriter: player.name
             });
         }
     });

@@ -303,6 +303,13 @@
             </div>
         </div>
         
+        <!-- 실시간 설명 보기 (게임 진행 중 표시) -->
+        <div class="location-form" id="teacher-descriptions-section" style="display: none; border: 3px solid #e67e22;">
+            <h2 class="section-title" style="color: #e67e22;">📝 실시간 설명 보기</h2>
+            <div id="teacher-descriptions-list" style="max-height: 400px; overflow-y: auto;"></div>
+            <div id="teacher-description-progress" style="text-align: center; margin-top: 15px; color: #7f8c8d; font-weight: bold;"></div>
+        </div>
+        
         <!-- 장소 관리 링크 -->
         <div class="location-form" style="border: 3px solid #3498db; text-align: center;">
             <h2 class="section-title" style="color: #3498db;">📍 장소 관리</h2>
@@ -340,30 +347,22 @@
                 showMessage('선생님 이름을 입력해주세요.', 'error');
                 return;
             }
-            socket.emit('createGame', name);
+            socket.emit('createGameAsTeacher', name);
         }
         
         // 게임 생성됨 - 교사용
-        socket.on('gameCreated', (data) => {
+        socket.on('gameCreatedAsTeacher', (data) => {
             teacherGameId = data.gameId;
             teacherPlayerId = data.playerId;
             
             document.getElementById('teacher-game-id').textContent = data.gameId;
             document.getElementById('teacher-waiting-room').style.display = 'block';
             
-            // 참가자 목록 초기화
+            // 참가자 목록 초기화 (교사는 목록에 표시되지 않음)
             const container = document.getElementById('teacher-players-container');
             container.innerHTML = '';
-            const playerItem = document.createElement('div');
-            playerItem.className = 'player-item';
-            playerItem.innerHTML = `
-                <span class="player-emoji">👤</span>
-                <span>${document.getElementById('teacher-name').value.trim()}</span>
-                <span style="color: #e74c3c; font-size: 12px; margin-left: 8px;">(방장)</span>
-            `;
-            container.appendChild(playerItem);
             
-            document.getElementById('teacher-player-count').textContent = '현재 1명';
+            document.getElementById('teacher-player-count').textContent = '현재 0명 (대기 중)';
             document.getElementById('teacher-start-button').disabled = true;
             
             showMessage('방이 생성되었습니다! 게임 코드를 학생들에게 공유해주세요.', 'success');
@@ -404,6 +403,55 @@
             showMessage('게임이 시작되었습니다!', 'success');
             document.getElementById('teacher-start-button').disabled = true;
             document.getElementById('teacher-start-button').textContent = '🎮 게임 진행 중...';
+            
+            // 실시간 설명 섹션 표시
+            document.getElementById('teacher-descriptions-section').style.display = 'block';
+            document.getElementById('teacher-descriptions-list').innerHTML = '<div style="text-align: center; color: #95a5a6; padding: 20px;">⏳ 학생들의 설명을 기다리는 중...</div>';
+            document.getElementById('teacher-description-progress').textContent = '0/0 작성 완료';
+        });
+        
+        // 실시간 설명 업데이트 (교사용)
+        socket.on('newDescription', (data) => {
+            const container = document.getElementById('teacher-descriptions-list');
+            
+            // 대기 메시지 제거
+            const waitingMsg = container.querySelector('div[style*="text-align: center"]');
+            if (waitingMsg) waitingMsg.remove();
+            
+            // 이미 같은 플레이어의 카드가 있는지 확인
+            const existingCard = container.querySelector(`[data-player-id="${data.playerId}"]`);
+            if (existingCard) {
+                existingCard.querySelector('.description-text').textContent = data.description;
+                return;
+            }
+            
+            // 새 카드 추가
+            const card = document.createElement('div');
+            card.className = 'description-card';
+            card.setAttribute('data-player-id', data.playerId);
+            card.style.cssText = 'background: linear-gradient(145deg, #dfe6e9, #b2bec3); padding: 15px; border-radius: 12px; margin-bottom: 10px; border-left: 5px solid #e67e22;';
+            card.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 1.2rem; font-weight: bold; color: #e67e22;">${data.playerName}</span>
+                </div>
+                <p class="description-text" style="font-size: 1.1rem; color: #2d3436; line-height: 1.5;">${data.description}</p>
+            `;
+            container.appendChild(card);
+            
+            // 자동 스크롤
+            container.scrollTop = container.scrollHeight;
+        });
+        
+        // 설명 작성 진행 상황 (교사용)
+        socket.on('waitingForDescriptions', (data) => {
+            document.getElementById('teacher-description-progress').textContent = 
+                `${data.writtenCount}/${data.totalCount} 작성 완료 - ${data.latestWriter || ''}님이 작성함`;
+        });
+        
+        // 모든 설명 제출 완료 (교사용)
+        socket.on('allDescriptionsSubmitted', (descriptionsList) => {
+            document.getElementById('teacher-description-progress').textContent = 
+                `✅ 모든 설명이 제출되었습니다! (${descriptionsList.length}명)`;
         });
         
         // 게임 종료됨

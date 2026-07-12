@@ -101,12 +101,18 @@
         </div>
     </div>
 
-    <!-- 설명 확인 화면 -->
+    <!-- 설명 확인 화면 (실시간 업데이트) -->
     <div id="review-screen" class="screen">
         <div class="review-content">
             <h2 class="review-title">📋 모든 설명</h2>
             <p class="review-hint">각 플레이어의 설명을 읽어보세요. 스파이를 찾아보세요!</p>
-            <div id="descriptions-list" class="descriptions-list"></div>
+            <div id="descriptions-list" class="descriptions-list">
+                <div class="empty-descriptions" style="text-align: center; color: #95a5a6; padding: 40px;">
+                    <div style="font-size: 40px; margin-bottom: 15px;">⏳</div>
+                    <p>아직 제출된 설명이 없습니다.</p>
+                    <p style="font-size: 0.9rem; margin-top: 10px;">다른 플레이어의 설명이 제출되면 실시간으로 표시됩니다.</p>
+                </div>
+            </div>
         </div>
     </div>
 

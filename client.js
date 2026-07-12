@@ -212,16 +212,48 @@ socket.on('citizenRole', (data) => {
     showScreen('role-screen');
 });
 
-// 설명 제출됨
+// 설명 제출됨 - 실시간 리뷰 화면으로 이동
 socket.on('descriptionSubmitted', () => {
-    showPopup('설명이 제출되었습니다! 다른 플레이어를 기다려주세요.');
-    showScreen('waiting-write-screen');
+    showPopup('설명이 제출되었습니다! 다른 플레이어의 설명이 실시간으로 표시됩니다.');
+    showScreen('review-screen');
 });
 
 // 설명 작성 진행 상황
 socket.on('waitingForDescriptions', (data) => {
     document.getElementById('write-progress').textContent = 
         `${data.writtenCount}/${data.totalCount} 작성 완료`;
+});
+
+// 실시간 설명 업데이트
+socket.on('newDescription', (data) => {
+    const descriptionsContainer = document.getElementById('descriptions-list');
+    
+    // "아직 제출된 설명이 없습니다" 메시지 제거
+    const emptyMsg = descriptionsContainer.querySelector('.empty-descriptions');
+    if (emptyMsg) emptyMsg.remove();
+    
+    // 이미 같은 플레이어의 카드가 있는지 확인
+    const existingCard = descriptionsContainer.querySelector(`[data-player-id="${data.playerId}"]`);
+    if (existingCard) {
+        // 기존 카드 업데이트
+        existingCard.querySelector('.description-text').textContent = data.description;
+        return;
+    }
+    
+    // 새 카드 추가
+    const card = document.createElement('div');
+    card.className = 'description-card';
+    card.setAttribute('data-player-id', data.playerId);
+    card.innerHTML = `
+        <div class="description-header">
+            <span class="description-author">${data.playerName}</span>
+        </div>
+        <p class="description-text">${data.description}</p>
+    `;
+    descriptionsContainer.appendChild(card);
+    
+    // 자동 스크롤
+    descriptionsContainer.scrollTop = descriptionsContainer.scrollHeight;
 });
 
 // 모든 설명 제출 완료
