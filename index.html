@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- 시작 화면 -->
+    <!-- 시작 화면 (이름 입력) -->
     <div id="start-screen" class="screen active">
         <div class="start-content">
             <h1 class="game-title">🕵️ 춘천 스파이 게임 🕵️</h1>
@@ -16,50 +16,28 @@
             <p class="intro-text">춘천의 장소를 맞춰보세요!</p>
             
             <div class="login-form">
-                <div id="create-game-section" class="form-section" style="display: none;">
-                    <h3 class="form-title">🎮 새 게임 만들기</h3>
-                    <input type="text" id="create-player-name" placeholder="이름을 입력하세요" maxlength="10" class="name-input">
-                    <button class="big-button" id="create-button" onclick="createGame()">게임 만들기</button>
-                </div>
-                
-                <div id="form-divider" class="form-divider" style="display: none;"></div>
-                
                 <div class="form-section">
-                    <h3 class="form-title">🎯 게임 참가하기</h3>
-                    <input type="text" id="join-game-id-input" placeholder="게임 코드 (숫자 6자리)" maxlength="6" class="game-code-input">
-                    <input type="text" id="join-player-name-input" placeholder="이름을 입력하세요" maxlength="10" class="name-input">
-                    <button class="big-button secondary-button" onclick="joinGameFromStart()">참가하기</button>
-                </div>
-                
-                <div class="teacher-link">
-                    <a href="teacher.html" class="teacher-button">�‍🏫 교사용 페이지 입장</a>
+                    <h3 class="form-title">🎮 로비 입장</h3>
+                    <input type="text" id="lobby-player-name" placeholder="이름을 입력하세요" maxlength="10" class="name-input">
+                    <button class="big-button" onclick="enterLobby()">로비 입장하기</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 게임 대기실 -->
-    <div id="waiting-room" class="screen">
-        <div class="waiting-content">
-            <h2 class="waiting-title">게임 대기실</h2>
-            <div class="game-id-display">
-                <p>게임 코드: <span id="game-id" class="game-code"></span></p>
-                <button class="copy-button" onclick="copyGameId()">복사</button>
-            </div>
+    <!-- 로비 화면 -->
+    <div id="lobby-screen" class="screen">
+        <div class="lobby-content">
+            <h2 class="lobby-title">🎪 전체 대기실</h2>
+            <p class="lobby-subtitle">교사가 게임을 시작할 때까지 기다려주세요!</p>
             
-            <div class="players-list">
-                <h3>참가자 목록</h3>
-                <div id="players-container" class="players-container"></div>
+            <div class="lobby-players-section">
+                <h3>📋 참가자 목록</h3>
+                <p id="lobby-player-count" class="lobby-player-count">현재 0명</p>
+                <div id="lobby-players-container" class="players-container">
+                    <div class="empty-lobby">아직 참가자가 없습니다.</div>
+                </div>
             </div>
-            
-            <div class="waiting-info">
-                <p>최소 2명이 필요합니다</p>
-                <p id="player-count">현재 1명</p>
-            </div>
-            
-            <button id="start-button" class="big-button start-game-button" onclick="startGame()" disabled>
-                게임 시작하기
-            </button>
         </div>
     </div>
 
@@ -79,16 +57,17 @@
         </div>
     </div>
 
-    <!-- 설명 작성 화면 -->
+    <!-- 설명 작성 화면 (채팅 형식) -->
     <div id="write-screen" class="screen">
         <div class="write-content">
             <h2 class="write-title">📝 설명 작성하기</h2>
-            <div class="write-hint">
-                <p>자신이 받은 장소에 대한 설명을 작성해주세요.</p>
-                <p class="hint-sub">스파이를 속이기 위해 너무 명확하지 않게 작성하세요!</p>
+            <p class="write-hint">자신이 받은 장소에 대한 설명을 작성해주세요. 다른 친구들의 설명도 실시간 채팅으로 보입니다!</p>
+            <div id="live-feed" class="live-feed"></div>
+            <p id="write-status" class="write-status"></p>
+            <div class="write-input-area">
+                <textarea id="description-input" placeholder="예: 이곳은 강 위를 걸을 수 있는 특별한 곳이에요. 아름다운 경치를 감상할 수 있죠." class="description-textarea"></textarea>
+                <button class="big-button submit-button" id="submit-desc-btn" onclick="submitDescription()">제출하기</button>
             </div>
-            <textarea id="description-input" placeholder="예: 이곳은 강 위를 걸을 수 있는 특별한 곳이에요. 아름다운 경치를 감상할 수 있죠." class="description-textarea"></textarea>
-            <button class="big-button submit-button" onclick="submitDescription()">제출하기</button>
         </div>
     </div>
 
@@ -144,12 +123,11 @@
                 <div class="result-details" id="result-details"></div>
             </div>
             <div class="result-buttons">
-                <button class="big-button" onclick="playAgain()">다시 하기</button>
+                <button class="big-button" onclick="returnToLobby()">🏠 로비로 돌아가기</button>
                 <button class="big-button secondary-button" onclick="goToStart()">처음으로</button>
             </div>
         </div>
     </div>
-
 
     <!-- 팝업 메시지 -->
     <div id="popup" class="popup" style="display: none;">
@@ -161,11 +139,5 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="client.js"></script>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-        });
-    </script>
 </body>
 </html>

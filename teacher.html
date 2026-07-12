@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>춘천 스파이 게임 - 교사용 관리 페이지</title>
+    <title>춘천 스파이 게임 - 교사용</title>
     <link rel="stylesheet" href="styles.css">
     <style>
         body {
@@ -12,7 +12,7 @@
         }
         
         .teacher-container {
-            max-width: 1200px;
+            max-width: 900px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -24,227 +24,258 @@
         
         .teacher-header h1 {
             color: #2c3e50;
+            font-size: 1.8rem;
             margin-bottom: 10px;
         }
         
-        .location-form {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
+        .teacher-header p {
+            color: #7f8c8d;
+            font-size: 1rem;
         }
         
-        .form-group {
+        .teacher-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
         
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #34495e;
+        .teacher-section h2 {
+            color: #2c3e50;
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-        
-        .form-group input:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-        
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-        
-        .image-preview {
-            margin-top: 10px;
-            max-width: 300px;
-            max-height: 200px;
-            border-radius: 5px;
-            display: none;
-        }
-        
-        .image-preview.active {
-            display: block;
-        }
-        
-        .button-group {
+        .teacher-input-group {
             display: flex;
             gap: 10px;
-            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .teacher-input-group input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #dfe6e9;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        .teacher-input-group input:focus {
+            outline: none;
+            border-color: #e67e22;
         }
         
         .btn {
             padding: 12px 24px;
             border: none;
-            border-radius: 5px;
-            font-size: 14px;
+            border-radius: 8px;
+            font-size: 1rem;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s;
         }
         
         .btn-primary {
-            background: #3498db;
+            background: linear-gradient(145deg, #e67e22, #d35400);
             color: white;
         }
         
         .btn-primary:hover {
-            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(230, 126, 34, 0.3);
         }
         
-        .btn-secondary {
-            background: #95a5a6;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #7f8c8d;
-        }
-        
-        .btn-danger {
-            background: #e74c3c;
-            color: white;
-        }
-        
-        .btn-danger:hover {
-            background: #c0392b;
+        .btn-primary:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
         
         .btn-success {
-            background: #27ae60;
+            background: linear-gradient(145deg, #27ae60, #2ecc71);
             color: white;
         }
         
         .btn-success:hover {
-            background: #229954;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
         }
         
-        .locations-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
+        .btn-success:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
         
-        .location-card {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            overflow: hidden;
-            transition: transform 0.3s;
+        .btn-danger {
+            background: linear-gradient(145deg, #e74c3c, #c0392b);
+            color: white;
         }
         
-        .location-card:hover {
-            transform: translateY(-3px);
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
         }
         
-        .location-image {
-            width: 100%;
-            height: 140px;
-            object-fit: cover;
-            background: #ecf0f1;
+        .teacher-lobby-list {
+            min-height: 100px;
         }
         
-        .location-image.placeholder {
+        .teacher-player-item {
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 40px;
-        }
-        
-        .location-info {
-            padding: 12px;
-        }
-        
-        .location-name {
-            font-size: 15px;
-            font-weight: bold;
-            color: #2c3e50;
+            gap: 10px;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
             margin-bottom: 6px;
+            font-size: 1rem;
         }
         
-        .location-description {
-            color: #7f8c8d;
-            font-size: 12px;
-            margin-bottom: 8px;
-            line-height: 1.4;
+        .teacher-player-item .player-emoji {
+            font-size: 1.3rem;
         }
         
-        .location-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        
-        .location-actions .btn {
-            flex: 1;
-            min-width: 70px;
-            padding: 6px 10px;
-            font-size: 11px;
-        }
-        
-        .section-title {
+        .teacher-player-item .player-name {
+            font-weight: 500;
             color: #2c3e50;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #3498db;
         }
         
-        .message {
-            padding: 12px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            display: none;
+        .teacher-player-item .player-number {
+            margin-left: auto;
+            color: #95a5a6;
+            font-size: 0.85rem;
         }
         
-        .message.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            display: block;
-        }
-        
-        .message.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            display: block;
-        }
-        
-        .empty-state {
+        .teacher-empty-state {
             text-align: center;
-            padding: 40px;
+            padding: 30px;
             color: #95a5a6;
         }
         
-        .empty-state-icon {
-            font-size: 60px;
+        .teacher-empty-state .empty-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .teacher-empty-state p {
+            font-size: 0.95rem;
+        }
+        
+        .teacher-stats {
+            display: flex;
+            gap: 20px;
             margin-bottom: 15px;
         }
         
-        @media (max-width: 768px) {
-            .locations-grid {
-                grid-template-columns: 1fr;
+        .teacher-stat {
+            background: #f8f9fa;
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .teacher-stat .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #e67e22;
+        }
+        
+        .teacher-stat .stat-label {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            margin-top: 3px;
+        }
+        
+        .teacher-message {
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .teacher-message.success {
+            display: block;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .teacher-message.error {
+            display: block;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .teacher-message.info {
+            display: block;
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .teacher-start-area {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .teacher-start-area .btn {
+            font-size: 1.2rem;
+            padding: 15px 40px;
+        }
+        
+        .teacher-start-hint {
+            color: #95a5a6;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        
+        /* Progress bars */
+        .room-progress {
+            margin: 15px 0;
+        }
+        
+        .room-progress-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .room-progress-item .room-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .room-progress-item .room-status {
+            color: #27ae60;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 600px) {
+            .teacher-container {
+                padding: 10px;
             }
             
-            .button-group {
+            .teacher-stats {
                 flex-direction: column;
+                gap: 10px;
             }
             
-            .btn {
-                width: 100%;
+            .teacher-input-group {
+                flex-direction: column;
             }
         }
     </style>
@@ -252,305 +283,190 @@
 <body>
     <div class="teacher-container">
         <div class="teacher-header">
-            <h1>🎓 교사용 관리 페이지</h1>
-            <p>춘천 스파이 게임의 장소와 사진을 관리할 수 있습니다.</p>
+            <h1>👩‍🏫 교사용 게임 관리</h1>
+            <p>로비에 있는 학생들을 자동으로 방에 배정하여 게임을 진행합니다.</p>
         </div>
         
-        <div id="message" class="message"></div>
+        <!-- 메시지 -->
+        <div id="teacher-message" class="teacher-message"></div>
         
-        <!-- 방 만들기 섹션 -->
-        <div class="location-form" style="border: 3px solid #27ae60;">
-            <h2 class="section-title" style="color: #27ae60;">🎮 방 만들기</h2>
-            <div class="form-group">
-                <label for="teacher-name">선생님 이름 *</label>
-                <input type="text" id="teacher-name" required placeholder="이름을 입력하세요" maxlength="10">
-            </div>
-            <div class="button-group">
-                <button class="btn btn-success" onclick="createTeacherGame()">방 만들기</button>
-            </div>
-        </div>
-        
-        <!-- 대기실 섹션 -->
-        <div class="location-form" id="teacher-waiting-room" style="display: none;">
-            <h2 class="section-title" style="color: #e67e22;">🚪 대기실</h2>
-            <div class="game-id-display" style="text-align: center; margin-bottom: 20px;">
-                <p style="font-size: 18px; font-weight: bold;">게임 코드: <span id="teacher-game-id" class="game-code" style="font-size: 28px; color: #e74c3c; letter-spacing: 5px;"></span></p>
-                <button class="btn btn-secondary" onclick="copyTeacherGameId()">📋 코드 복사</button>
-            </div>
-            <div class="players-list">
-                <h3>👥 참가자 목록</h3>
-                <div id="teacher-players-container" class="players-container" style="margin: 15px 0;"></div>
-            </div>
-            <div class="waiting-info" style="text-align: center; margin: 15px 0; color: #7f8c8d;">
-                <p>최소 2명이 필요합니다</p>
-                <p id="teacher-player-count">현재 1명</p>
-            </div>
-            <div style="text-align: center;">
-                <button id="teacher-start-button" class="btn btn-success" onclick="startTeacherGame()" disabled style="padding: 15px 40px; font-size: 18px;">
-                    🎯 게임 시작하기
-                </button>
+        <!-- 교사 로그인 -->
+        <div id="teacher-login-section" class="teacher-section">
+            <h2>🔑 교사 인증</h2>
+            <div class="teacher-input-group">
+                <input type="text" id="teacher-name-input" placeholder="교사 이름을 입력하세요" maxlength="10">
+                <button class="btn btn-primary" onclick="startTeacherSession()">세션 시작</button>
             </div>
         </div>
         
-        <!-- 활성 방 목록 (대기실 현황) -->
-        <div class="location-form">
-            <h2 class="section-title" style="color: #3498db;">📊 현재 진행 중인 방</h2>
-            <div id="active-rooms-container">
-                <div class="empty-state">
-                    <div class="empty-state-icon">🚪</div>
-                    <p>현재 진행 중인 방이 없습니다.</p>
+        <!-- 게임 대시보드 -->
+        <div id="teacher-dashboard" class="teacher-section" style="display: none;">
+            <h2>🎮 게임 대시보드</h2>
+            
+            <div class="teacher-stats">
+                <div class="teacher-stat">
+                    <div class="stat-number" id="teacher-total-players">0</div>
+                    <div class="stat-label">로비 참가자</div>
+                </div>
+                <div class="teacher-stat">
+                    <div class="stat-number" id="teacher-rooms-count">0</div>
+                    <div class="stat-label">생성될 방</div>
                 </div>
             </div>
-        </div>
-        
-        <!-- 실시간 설명 보기 (게임 진행 중 표시) -->
-        <div class="location-form" id="teacher-descriptions-section" style="display: none; border: 3px solid #e67e22;">
-            <h2 class="section-title" style="color: #e67e22;">📝 실시간 설명 보기</h2>
-            <div id="teacher-descriptions-list" style="max-height: 400px; overflow-y: auto;"></div>
-            <div id="teacher-description-progress" style="text-align: center; margin-top: 15px; color: #7f8c8d; font-weight: bold;"></div>
-        </div>
-        
-        <!-- 장소 관리 링크 -->
-        <div class="location-form" style="border: 3px solid #3498db; text-align: center;">
-            <h2 class="section-title" style="color: #3498db;">📍 장소 관리</h2>
-            <p style="color: #7f8c8d; margin-bottom: 20px;">게임에 사용할 장소를 추가, 수정, 삭제할 수 있습니다.</p>
-            <a href="locations.html" class="btn btn-primary" style="display: inline-block; text-decoration: none; padding: 15px 40px; font-size: 18px;">
-                📋 장소 관리 페이지로 이동
-            </a>
+            
+            <div id="teacher-lobby-section">
+                <h3>📋 로비 참가자 목록</h3>
+                <div id="teacher-lobby-list" class="teacher-lobby-list">
+                    <div class="teacher-empty-state">
+                        <div class="empty-icon">👤</div>
+                        <p>아직 참가자가 없습니다.<br>학생들이 로비에 입장할 때까지 기다려주세요.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 게임 상태 표시 (게임 시작 후) -->
+            <div id="teacher-game-status" style="display: none;">
+                <h3>🎮 게임 진행 상태</h3>
+                <div id="teacher-room-progress" class="room-progress"></div>
+            </div>
+            
+            <div class="teacher-start-area">
+                <button id="teacher-start-btn" class="btn btn-success" onclick="startGame()" disabled>
+                    🎯 게임 시작하기
+                </button>
+                <p class="teacher-start-hint">※ 최소 2명 이상의 참가자가 필요합니다. 게임 시작 시 자동으로 방이 배정됩니다.</p>
+            </div>
         </div>
     </div>
-    
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        let teacherName = '';
+        let isSessionActive = false;
         
-        // 메시지 표시
+        // ==================== 메시지 ====================
         function showMessage(message, type) {
-            const messageDiv = document.getElementById('message');
-            messageDiv.textContent = message;
-            messageDiv.className = `message ${type}`;
+            const msgEl = document.getElementById('teacher-message');
+            msgEl.textContent = message;
+            msgEl.className = 'teacher-message ' + type;
+            msgEl.style.display = 'block';
             
             setTimeout(() => {
-                messageDiv.className = 'message';
+                msgEl.style.display = 'none';
             }, 5000);
         }
         
-        // ==================== 교사용 방 만들기 기능 ====================
-        
-        let teacherGameId = null;
-        let teacherPlayerId = null;
-        
-        // 방 만들기
-        function createTeacherGame() {
-            const name = document.getElementById('teacher-name').value.trim();
+        // ==================== 교사 세션 시작 ====================
+        function startTeacherSession() {
+            const name = document.getElementById('teacher-name-input').value.trim();
+            
             if (!name) {
-                showMessage('선생님 이름을 입력해주세요.', 'error');
-                return;
-            }
-            socket.emit('createGameAsTeacher', name);
-        }
-        
-        // 게임 생성됨 - 교사용
-        socket.on('gameCreatedAsTeacher', (data) => {
-            teacherGameId = data.gameId;
-            teacherPlayerId = data.playerId;
-            
-            document.getElementById('teacher-game-id').textContent = data.gameId;
-            document.getElementById('teacher-waiting-room').style.display = 'block';
-            
-            // 참가자 목록 초기화 (교사는 목록에 표시되지 않음)
-            const container = document.getElementById('teacher-players-container');
-            container.innerHTML = '';
-            
-            document.getElementById('teacher-player-count').textContent = '현재 0명 (대기 중)';
-            document.getElementById('teacher-start-button').disabled = true;
-            
-            showMessage('방이 생성되었습니다! 게임 코드를 학생들에게 공유해주세요.', 'success');
-            
-            // 활성 방 목록 갱신
-            loadActiveRooms();
-        });
-        
-        // 플레이어 참가 - 교사용 대기실 업데이트
-        socket.on('playerJoined', (data) => {
-            // teacherGameId로 현재 방에 속한 플레이어인지 확인
-            const currentGameId = socket.gameId || teacherGameId;
-            if (teacherGameId && currentGameId === teacherGameId) {
-                const container = document.getElementById('teacher-players-container');
-                const playerItem = document.createElement('div');
-                playerItem.className = 'player-item';
-                playerItem.innerHTML = `
-                    <span class="player-emoji">👤</span>
-                    <span>${data.playerName}</span>
-                `;
-                container.appendChild(playerItem);
-                
-                document.getElementById('teacher-player-count').textContent = `현재 ${data.playerCount}명`;
-                
-                if (data.playerCount >= 2) {
-                    document.getElementById('teacher-start-button').disabled = false;
-                }
-            }
-        });
-        
-        // 게임 시작 - 교사용
-        function startTeacherGame() {
-            socket.emit('startGame');
-        }
-        
-        // 게임 시작됨
-        socket.on('gameStarted', (data) => {
-            showMessage('게임이 시작되었습니다!', 'success');
-            document.getElementById('teacher-start-button').disabled = true;
-            document.getElementById('teacher-start-button').textContent = '🎮 게임 진행 중...';
-            
-            // 실시간 설명 섹션 표시
-            document.getElementById('teacher-descriptions-section').style.display = 'block';
-            document.getElementById('teacher-descriptions-list').innerHTML = '<div style="text-align: center; color: #95a5a6; padding: 20px;">⏳ 학생들의 설명을 기다리는 중...</div>';
-            document.getElementById('teacher-description-progress').textContent = '0/0 작성 완료';
-        });
-        
-        // 실시간 설명 업데이트 (교사용)
-        socket.on('newDescription', (data) => {
-            const container = document.getElementById('teacher-descriptions-list');
-            
-            // 대기 메시지 제거
-            const waitingMsg = container.querySelector('div[style*="text-align: center"]');
-            if (waitingMsg) waitingMsg.remove();
-            
-            // 이미 같은 플레이어의 카드가 있는지 확인
-            const existingCard = container.querySelector(`[data-player-id="${data.playerId}"]`);
-            if (existingCard) {
-                existingCard.querySelector('.description-text').textContent = data.description;
+                showMessage('교사 이름을 입력해주세요.', 'error');
                 return;
             }
             
-            // 새 카드 추가
-            const card = document.createElement('div');
-            card.className = 'description-card';
-            card.setAttribute('data-player-id', data.playerId);
-            card.style.cssText = 'background: linear-gradient(145deg, #dfe6e9, #b2bec3); padding: 15px; border-radius: 12px; margin-bottom: 10px; border-left: 5px solid #e67e22;';
-            card.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                    <span style="font-size: 1.2rem; font-weight: bold; color: #e67e22;">${data.playerName}</span>
-                </div>
-                <p class="description-text" style="font-size: 1.1rem; color: #2d3436; line-height: 1.5;">${data.description}</p>
-            `;
-            container.appendChild(card);
-            
-            // 자동 스크롤
-            container.scrollTop = container.scrollHeight;
-        });
-        
-        // 설명 작성 진행 상황 (교사용)
-        socket.on('waitingForDescriptions', (data) => {
-            document.getElementById('teacher-description-progress').textContent = 
-                `${data.writtenCount}/${data.totalCount} 작성 완료 - ${data.latestWriter || ''}님이 작성함`;
-        });
-        
-        // 모든 설명 제출 완료 (교사용)
-        socket.on('allDescriptionsSubmitted', (descriptionsList) => {
-            document.getElementById('teacher-description-progress').textContent = 
-                `✅ 모든 설명이 제출되었습니다! (${descriptionsList.length}명)`;
-        });
-        
-        // 게임 종료됨
-        socket.on('gameEnded', (data) => {
-            document.getElementById('teacher-start-button').disabled = false;
-            document.getElementById('teacher-start-button').textContent = '🎯 게임 시작하기';
-            showMessage('게임이 종료되었습니다!', 'success');
-        });
-        
-        // 게임 재시작됨
-        socket.on('gameRestarted', () => {
-            document.getElementById('teacher-start-button').disabled = false;
-            document.getElementById('teacher-start-button').textContent = '🎯 게임 시작하기';
-            showMessage('게임이 재시작되었습니다!', 'success');
-        });
-        
-        // 게임 코드 복사
-        function copyTeacherGameId() {
-            const gameId = document.getElementById('teacher-game-id').textContent;
-            navigator.clipboard.writeText(gameId).then(() => {
-                showMessage('게임 코드가 복사되었습니다!', 'success');
-            }).catch(() => {
-                showMessage('게임 코드: ' + gameId, 'success');
-            });
+            teacherName = name;
+            socket.emit('teacherStartSession', name);
         }
         
-        // ==================== 활성 방 목록 ====================
+        // 세션 시작됨
+        socket.on('sessionStarted', (data) => {
+            isSessionActive = true;
+            document.getElementById('teacher-login-section').style.display = 'none';
+            document.getElementById('teacher-dashboard').style.display = 'block';
+            showMessage('세션이 시작되었습니다! 학생들이 로비에 입장할 때까지 기다려주세요.', 'success');
+        });
         
-        async function loadActiveRooms() {
-            try {
-                const response = await fetch('/api/rooms');
-                const rooms = await response.json();
-                renderActiveRooms(rooms);
-            } catch (error) {
-                console.error('방 목록 로드 실패:', error);
-            }
-        }
-        
-        function renderActiveRooms(rooms) {
-            const container = document.getElementById('active-rooms-container');
+        // ==================== 로비 업데이트 ====================
+        socket.on('lobbyUpdate', (players) => {
+            const listEl = document.getElementById('teacher-lobby-list');
+            const startBtn = document.getElementById('teacher-start-btn');
             
-            if (rooms.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">🚪</div>
-                        <p>현재 진행 중인 방이 없습니다.</p>
+            document.getElementById('teacher-total-players').textContent = players.length;
+            
+            // 몇 개의 방이 생성될지 계산 (5명당 1개 방)
+            const roomsNeeded = Math.ceil(players.length / 5);
+            document.getElementById('teacher-rooms-count').textContent = roomsNeeded;
+            
+            // 시작 버튼 상태
+            startBtn.disabled = players.length < 2;
+            
+            if (players.length === 0) {
+                listEl.innerHTML = `
+                    <div class="teacher-empty-state">
+                        <div class="empty-icon">👤</div>
+                        <p>아직 참가자가 없습니다.<br>학생들이 로비에 입장할 때까지 기다려주세요.</p>
                     </div>
                 `;
                 return;
             }
             
-            container.innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 10px;">
-                    ${rooms.map(room => `
-                        <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; text-align: center; border: 1px solid #dee2e6;">
-                            <div style="font-size: 30px; margin-bottom: 8px;">🎮</div>
-                            <div style="font-weight: bold; color: #2c3e50; margin-bottom: 5px;">방 ${room.gameId}</div>
-                            <div style="color: #7f8c8d; font-size: 13px; margin-bottom: 10px;">
-                                👥 ${room.playerCount}명 참가 중
-                                <br>
-                                <span style="color: ${room.status === 'waiting' ? '#27ae60' : '#e74c3c'};">
-                                    ${room.status === 'waiting' ? '⏳ 대기 중' : '🎮 게임 중'}
-                                </span>
-                            </div>
-                            <button class="btn btn-danger" onclick="deleteRoom('${room.gameId}')" style="padding: 6px 12px; font-size: 12px;">
-                                🗑️ 방 삭제
-                            </button>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        }
+            listEl.innerHTML = '';
+            players.forEach((player, index) => {
+                const item = document.createElement('div');
+                item.className = 'teacher-player-item';
+                item.innerHTML = `
+                    <span class="player-emoji">👤</span>
+                    <span class="player-name">${player.name}</span>
+                    <span class="player-number">#${index + 1}</span>
+                `;
+                listEl.appendChild(item);
+            });
+        });
         
-        async function deleteRoom(gameId) {
-            if (!confirm('정말로 이 방을 삭제하시겠습니까?')) return;
+        // ==================== 게임 시작 ====================
+        function startGame() {
+            if (!isSessionActive) return;
             
-            try {
-                const response = await fetch(`/api/rooms/${gameId}`, {
-                    method: 'DELETE'
-                });
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showMessage(result.message, 'success');
-                    await loadActiveRooms();
-                } else {
-                    showMessage(result.error || '방 삭제 중 오류가 발생했습니다.', 'error');
-                }
-            } catch (error) {
-                showMessage('서버와 통신 중 오류가 발생했습니다.', 'error');
-            }
+            const startBtn = document.getElementById('teacher-start-btn');
+            startBtn.disabled = true;
+            startBtn.textContent = '⏳ 게임 시작 중...';
+            
+            socket.emit('teacherStartGame');
         }
         
-        // 주기적으로 활성 방 목록 갱신
-        setInterval(loadActiveRooms, 5000);
+        // 게임 시작됨 (교사용)
+        socket.on('gamesStarted', (data) => {
+            const startBtn = document.getElementById('teacher-start-btn');
+            startBtn.disabled = false;
+            startBtn.textContent = '🎯 게임 시작하기';
+            
+            document.getElementById('teacher-game-status').style.display = 'block';
+            
+            const progressEl = document.getElementById('teacher-room-progress');
+            progressEl.innerHTML = '';
+            
+            data.gameIds.forEach((gameId, index) => {
+                const item = document.createElement('div');
+                item.className = 'room-progress-item';
+                item.innerHTML = `
+                    <span class="room-name">📦 ${index + 1}번 방</span>
+                    <span class="room-status">🎮 게임 진행 중...</span>
+                `;
+                progressEl.appendChild(item);
+            });
+            
+            showMessage(`🎮 게임이 시작되었습니다! (${data.roomCount}개 방)`, 'success');
+        });
         
-        // 페이지 로드 시 활성 방 목록 로드
-        document.addEventListener('DOMContentLoaded', () => {
-            loadActiveRooms();
+        // 게임 종료됨 (교사용)
+        socket.on('gameEnded', () => {
+            // 로비 목록 갱신
+            showMessage('게임이 종료되었습니다! "로비로 돌아가기"를 통해 학생들이 로비로 복귀합니다.', 'info');
+        });
+        
+        // 에러
+        socket.on('error', (message) => {
+            showMessage(message, 'error');
+            const startBtn = document.getElementById('teacher-start-btn');
+            startBtn.disabled = false;
+            startBtn.textContent = '🎯 게임 시작하기';
+        });
+        
+        // ==================== 게임 진행 중 업데이트 ====================
+        socket.on('gameStarted', () => {
+            showMessage('게임이 시작되었습니다!', 'success');
         });
     </script>
 </body>

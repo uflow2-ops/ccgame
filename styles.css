@@ -462,8 +462,83 @@ body {
     border-color: #764ba2;
 }
 
-.submit-button {
+ .submit-button {
     width: 100%;
+}
+
+/* 라이브 피드 (채팅 형식) */
+.live-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 40vh;
+    overflow-y: auto;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 15px;
+    border: 2px solid #e9ecef;
+}
+
+.chat-bubble {
+    background: linear-gradient(145deg, #dfe6e9, #b2bec3);
+    padding: 12px 18px;
+    border-radius: 18px;
+    border-bottom-left-radius: 4px;
+    max-width: 85%;
+    align-self: flex-start;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    animation: fadeIn 0.3s ease;
+}
+
+.chat-bubble.mine {
+    background: linear-gradient(145deg, #a29bfe, #6c5ce7);
+    align-self: flex-end;
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 4px;
+}
+
+.chat-bubble .chat-author {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #764ba2;
+    margin-bottom: 4px;
+}
+
+.chat-bubble.mine .chat-author {
+    color: #fff;
+    text-align: right;
+}
+
+.chat-bubble .chat-text {
+    font-size: 1.2rem;
+    color: #2d3436;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.chat-bubble.mine .chat-text {
+    color: #fff;
+}
+
+.write-status {
+    font-size: 1.1rem;
+    color: #27ae60;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 15px;
+    min-height: 1.5rem;
+}
+
+.write-input-area {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.write-input-area .description-textarea {
+    min-height: 100px;
+    margin-bottom: 0;
 }
 
 /* 대기 화면 */

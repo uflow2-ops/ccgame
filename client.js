@@ -1,9 +1,8 @@
-    // Socket.io 연결
+// Socket.io 연결
 const socket = io();
 
 // 게임 상태
 let gameState = {
-    gameId: null,
     playerId: null,
     playerName: null,
     currentScreen: 'start',
@@ -11,28 +10,6 @@ let gameState = {
     location: null,
     hasWritten: false
 };
-
-// ==================== 역할 기반 UI 설정 ====================
-function setupRoleBasedUI() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const role = urlParams.get('role'); // 'teacher' or 'student'
-    
-    const createGameSection = document.getElementById('create-game-section');
-    const formDivider = document.getElementById('form-divider');
-    const teacherLink = document.getElementById('teacher-link');
-    
-    if (role === 'teacher') {
-        // 교사용: 게임 만들기 표시
-        if (createGameSection) createGameSection.style.display = 'block';
-        if (formDivider) formDivider.style.display = 'block';
-        if (teacherLink) teacherLink.style.display = 'none';
-    } else {
-        // 학생용 또는 기본값: 게임 만들기 숨김
-        if (createGameSection) createGameSection.style.display = 'none';
-        if (formDivider) formDivider.style.display = 'none';
-        if (teacherLink) teacherLink.style.display = 'none';
-    }
-}
 
 // ==================== 화면 관리 ====================
 function showScreen(screenId) {
@@ -43,9 +20,9 @@ function showScreen(screenId) {
     gameState.currentScreen = screenId;
 }
 
-// ==================== 게임 생성 ====================
-function createGame() {
-    const playerName = document.getElementById('create-player-name').value.trim();
+// ==================== 로비 입장 ====================
+function enterLobby() {
+    const playerName = document.getElementById('lobby-player-name').value.trim();
     
     if (!playerName) {
         showPopup('이름을 입력해주세요!');
@@ -53,28 +30,8 @@ function createGame() {
     }
     
     gameState.playerName = playerName;
-    socket.emit('createGame', playerName);
+    socket.emit('joinLobby', playerName);
 }
-
-// ==================== 게임 참가 (시작 화면에서) ====================
-function joinGameFromStart() {
-    const gameId = document.getElementById('join-game-id-input').value.trim();
-    const playerName = document.getElementById('join-player-name-input').value.trim();
-    
-    if (!gameId) {
-        showPopup('게임 코드를 입력해주세요!');
-        return;
-    }
-    
-    if (!playerName) {
-        showPopup('이름을 입력해주세요!');
-        return;
-    }
-    
-    gameState.playerName = playerName;
-    socket.emit('joinGame', { gameId, playerName });
-}
-
 
 // ==================== 게임 시작 ====================
 function startGame() {
@@ -83,6 +40,11 @@ function startGame() {
 
 // ==================== 역할 확인 후 다음으로 ====================
 function proceedToWrite() {
+    // 라이브 피드 초기화
+    const feed = document.getElementById('live-feed');
+    feed.innerHTML = '<div class="empty-feed" style="text-align:center; color:#95a5a6; padding:20px;">아직 제출된 설명이 없습니다. 친구들이 작성하면 여기에 채팅처럼 표시됩니다!</div>';
+    document.getElementById('write-status').textContent = '';
+    document.getElementById('submit-desc-btn').disabled = false;
     showScreen('write-screen');
 }
 
@@ -96,6 +58,30 @@ function submitDescription() {
     }
     
     socket.emit('submitDescription', description);
+    
+    // 내 설명을 채팅에 추가
+    addLiveFeedMessage(gameState.playerName, description, true);
+    
+    // 입력창 비우기 및 제출 비활성화
+    document.getElementById('description-input').value = '';
+    document.getElementById('submit-desc-btn').disabled = true;
+    document.getElementById('write-status').textContent = '✅ 제출 완료! 다른 친구들을 기다리는 중...';
+}
+
+// 라이브 피드에 메시지 추가
+function addLiveFeedMessage(playerName, description, isMine) {
+    const feed = document.getElementById('live-feed');
+    const emptyMsg = feed.querySelector('.empty-feed');
+    if (emptyMsg) emptyMsg.remove();
+    
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble' + (isMine ? ' mine' : '');
+    bubble.innerHTML = `
+        <div class="chat-author">${playerName}</div>
+        <div class="chat-text">${description}</div>
+    `;
+    feed.appendChild(bubble);
+    feed.scrollTop = feed.scrollHeight;
 }
 
 // ==================== 투표 ====================
@@ -103,9 +89,9 @@ function submitVote(votedPlayerId) {
     socket.emit('submitVote', votedPlayerId);
 }
 
-// ==================== 다시 하기 ====================
-function playAgain() {
-    socket.emit('restartGame');
+// ==================== 로비로 돌아가기 ====================
+function returnToLobby() {
+    socket.emit('returnToLobby');
 }
 
 function goToStart() {
@@ -135,55 +121,39 @@ function closePopup() {
 
 // ==================== Socket 이벤트 핸들러 ====================
 
-// 게임 생성됨
-socket.on('gameCreated', (data) => {
-    gameState.gameId = data.gameId;
+// 로비 입장됨
+socket.on('joinedLobby', (data) => {
     gameState.playerId = data.playerId;
-    document.getElementById('game-id').textContent = data.gameId;
-    showScreen('waiting-room');
+    showScreen('lobby-screen');
 });
 
-// 게임 참가됨
-socket.on('gameJoined', (data) => {
-    gameState.gameId = data.gameId;
-    gameState.playerId = data.playerId;
-    showScreen('waiting-room');
-});
-
-// 플레이어 참가
-socket.on('playerJoined', (data) => {
-    const playersContainer = document.getElementById('players-container');
-    const playerItem = document.createElement('div');
-    playerItem.className = 'player-item';
-    playerItem.innerHTML = `
-        <span class="player-emoji">👤</span>
-        <span>${data.playerName}</span>
-    `;
-    playersContainer.appendChild(playerItem);
+// 로비 업데이트 (참가자 목록)
+socket.on('lobbyUpdate', (players) => {
+    const container = document.getElementById('lobby-players-container');
+    container.innerHTML = '';
     
-    document.getElementById('player-count').textContent = `현재 ${data.playerCount}명`;
-    
-    // 최소 2명 이상이면 시작 버튼 활성화
-    if (data.playerCount >= 2) {
-        document.getElementById('start-button').disabled = false;
+    if (players.length === 0) {
+        container.innerHTML = '<div class="empty-lobby">아직 참가자가 없습니다.</div>';
+        document.getElementById('lobby-player-count').textContent = '현재 0명';
+        return;
     }
+    
+    players.forEach(player => {
+        const playerItem = document.createElement('div');
+        playerItem.className = 'player-item';
+        playerItem.innerHTML = `
+            <span class="player-emoji">👤</span>
+            <span>${player.name}</span>
+        `;
+        container.appendChild(playerItem);
+    });
+    
+    document.getElementById('lobby-player-count').textContent = `현재 ${players.length}명`;
 });
 
-// 플레이어 퇴장
-socket.on('playerLeft', (data) => {
-    showPopup(`${data.playerName}님이 게임을 나갔습니다.`);
-    location.reload();
-});
-
-// 게임 시작됨 (세션에서 자동 배정 후)
+// 게임 시작됨
 socket.on('gameStarted', (data) => {
-    if (data.message) {
-        // 세션에서 시작된 경우
-        showPopup(data.message, 2000);
-    } else {
-        // 기존 게임에서 시작된 경우
-        showPopup('게임이 시작되었습니다!', 2000);
-    }
+    showPopup('게임이 시작되었습니다!', 2000);
 });
 
 // 스파이 역할
@@ -226,6 +196,11 @@ socket.on('waitingForDescriptions', (data) => {
 
 // 실시간 설명 업데이트
 socket.on('newDescription', (data) => {
+    // 작성 화면의 라이브 피드에도 추가 (채팅 형식)
+    if (gameState.currentScreen === 'write-screen') {
+        addLiveFeedMessage(data.playerName, data.description, false);
+    }
+    
     const descriptionsContainer = document.getElementById('descriptions-list');
     
     // "아직 제출된 설명이 없습니다" 메시지 제거
@@ -235,7 +210,6 @@ socket.on('newDescription', (data) => {
     // 이미 같은 플레이어의 카드가 있는지 확인
     const existingCard = descriptionsContainer.querySelector(`[data-player-id="${data.playerId}"]`);
     if (existingCard) {
-        // 기존 카드 업데이트
         existingCard.querySelector('.description-text').textContent = data.description;
         return;
     }
@@ -373,33 +347,15 @@ function celebrateWinner() {
     }
 }
 
-// 게임 재시작됨 - 대기실로 복귀
-socket.on('gameRestarted', (data) => {
-    // 게임 ID 표시
-    document.getElementById('game-id').textContent = data.gameId || gameState.gameId;
-    
-    // 참가자 목록 초기화 후 다시 채우기
-    const playersContainer = document.getElementById('players-container');
-    playersContainer.innerHTML = '';
-    
-    data.players.forEach(player => {
-        const playerItem = document.createElement('div');
-        playerItem.className = 'player-item';
-        playerItem.innerHTML = `
-            <span class="player-emoji">👤</span>
-            <span>${player.name}</span>
-        `;
-        playersContainer.appendChild(playerItem);
-    });
-    
-    document.getElementById('player-count').textContent = `현재 ${data.playerCount}명`;
-    
-    // 2명 이상이면 시작 버튼 활성화
-    document.getElementById('start-button').disabled = data.playerCount < 2;
-    
-    // 화면을 대기실로 전환
-    showScreen('waiting-room');
-    showPopup('게임이 끝났습니다! 다시 대기실로 돌아갑니다.');
+// 로비로 복귀됨
+socket.on('returnedToLobby', () => {
+    showScreen('lobby-screen');
+    showPopup('로비로 돌아왔습니다! 새로운 게임을 기다려주세요.');
+});
+
+// 플레이어 퇴장
+socket.on('playerLeft', (data) => {
+    showPopup(`${data.playerName}님이 게임을 나갔습니다.`);
 });
 
 // 에러
@@ -407,33 +363,12 @@ socket.on('error', (message) => {
     showPopup(message);
 });
 
-// 방 재배정
-socket.on('roomReassigned', (data) => {
-    showPopup(data.message);
-    gameState.gameId = data.newGameId;
-});
-
 // ==================== 이벤트 리스너 ====================
 document.addEventListener('DOMContentLoaded', function() {
-    // 역할 기반 UI 설정
-    setupRoleBasedUI();
-    
-    // 엔터키로 게임 생성/참가
-    document.getElementById('create-player-name').addEventListener('keypress', function(e) {
+    // 엔터키로 로비 입장
+    document.getElementById('lobby-player-name').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
-            createGame();
-        }
-    });
-    
-    document.getElementById('join-game-id-input').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            joinGameFromStart();
-        }
-    });
-    
-    document.getElementById('join-player-name-input').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            joinGameFromStart();
+            enterLobby();
         }
     });
     
