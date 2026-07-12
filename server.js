@@ -538,11 +538,18 @@ io.on('connection', (socket) => {
             
             game.status = 'ended';
             
+            const playersInfo = game.players.map(p => ({
+                id: p.id,
+                name: p.name,
+                isSpy: p.id === game.spyId
+            }));
+            
             io.to(gameId).emit('gameEnded', {
                 spyCaught,
                 spyName: spyPlayer.name,
                 accusedName: accusedPlayer.name,
                 voteCount,
+                players: playersInfo,
                 actualSpyId: game.spyId,
                 winningTeam: spyCaught ? 'citizens' : 'spy',
                 fastestPlayer: fastestPlayer ? {
@@ -571,6 +578,7 @@ io.on('connection', (socket) => {
         game.locations = [];
         game.descriptions = {};
         game.votes = {};
+        game.completionTimes = {};
         
         game.players.forEach(player => {
             player.location = null;
@@ -578,7 +586,14 @@ io.on('connection', (socket) => {
             player.hasWritten = false;
         });
         
-        io.to(gameId).emit('gameRestarted');
+        io.to(gameId).emit('gameRestarted', {
+            players: game.players.map(p => ({
+                id: p.id,
+                name: p.name
+            })),
+            playerCount: game.players.length,
+            gameId: game.id
+        });
     });
 
     // 연결 해제

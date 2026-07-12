@@ -373,10 +373,33 @@ function celebrateWinner() {
     }
 }
 
-// 게임 재시작됨
-socket.on('gameRestarted', () => {
-    showPopup('게임이 재시작되었습니다!');
-    location.reload();
+// 게임 재시작됨 - 대기실로 복귀
+socket.on('gameRestarted', (data) => {
+    // 게임 ID 표시
+    document.getElementById('game-id').textContent = data.gameId || gameState.gameId;
+    
+    // 참가자 목록 초기화 후 다시 채우기
+    const playersContainer = document.getElementById('players-container');
+    playersContainer.innerHTML = '';
+    
+    data.players.forEach(player => {
+        const playerItem = document.createElement('div');
+        playerItem.className = 'player-item';
+        playerItem.innerHTML = `
+            <span class="player-emoji">👤</span>
+            <span>${player.name}</span>
+        `;
+        playersContainer.appendChild(playerItem);
+    });
+    
+    document.getElementById('player-count').textContent = `현재 ${data.playerCount}명`;
+    
+    // 2명 이상이면 시작 버튼 활성화
+    document.getElementById('start-button').disabled = data.playerCount < 2;
+    
+    // 화면을 대기실로 전환
+    showScreen('waiting-room');
+    showPopup('게임이 끝났습니다! 다시 대기실로 돌아갑니다.');
 });
 
 // 에러
