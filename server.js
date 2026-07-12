@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const server = http.createServer(app);
@@ -15,23 +16,29 @@ app.use(express.static(path.join(__dirname)));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 파일 업로드 설정
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const uploadDir = 'uploads';
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir);
-        }
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
-        cb(null, uniqueName);
-    }
-});
+// ==================== Cloudinary 설정 (외부 영구 저장) ====================
+// 환경변수가 설정되면 Cloudinary에 업로드(재배포 후에도 유지),
+// 미설정 시 로컬 uploads/ 폴더에 fallback(기존 동작)
+const cloudinaryConfigured = !!(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
+);
 
+if (cloudinaryConfigured) {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+    });
+    console.log('☁️ Cloudinary 영구 저장소 사용 중 (재배포 후에도 사진/장소 유지)');
+} else {
+    console.log('⚠️ Cloudinary 환경변수 미설정: 로컬 uploads/ 폴더에 저장 (재배포 시 사라질 수 있음)');
+}
+
+// 파일 업로드 설정 (메모리 버퍼로 받아 Cloudinary 또는 로컬에 저장)
 const upload = multer({
-    storage: storage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = /jpeg|jpg|png|gif/;
@@ -63,7 +70,20 @@ let teacherSession = null; // { teacherId, teacherName }
 const LOCATIONS_FILE = path.join(__dirname, 'locations.json');
 
 // locations.json에서 장소 데이터 로드
-function loadLocations() {
+// Cloudinary 설정 시: 외부 raw 파일에서 로드(재배포 후에도 유지), 실패 시 로컬 fallback
+async function loadLocations() {
+    if (cloudinaryConfigured) {
+        try {
+            const url = cloudinary.url('chuncheon-spy/locations', { resource_type: 'raw' });
+            const resp = await fetch(url);
+            if (resp.ok) {
+                return await resp.json();
+            }
+        } catch (error) {
+            console.error('Cloudinary 장소 데이터 로드 실패, 로컬 fallback:', error);
+        }
+    }
+    // 로컬 fallback
     try {
         if (fs.existsSync(LOCATIONS_FILE)) {
             const data = fs.readFileSync(LOCATIONS_FILE, 'utf8');
@@ -76,13 +96,74 @@ function loadLocations() {
 }
 
 // locations.json에 장소 데이터 저장
-function saveLocations(locations) {
+// 항상 로컬에 백업 쓰고, Cloudinary 설정 시 외부 raw 파일에도 영구 저장
+async function saveLocations(locations) {
+    // 로컬 백업
     try {
         fs.writeFileSync(LOCATIONS_FILE, JSON.stringify(locations, null, 2), 'utf8');
-        return true;
     } catch (error) {
-        console.error('장소 데이터 저장 실패:', error);
-        return false;
+        console.error('로컬 장소 데이터 저장 실패:', error);
+    }
+
+    // Cloudinary 영구 저장
+    if (cloudinaryConfigured) {
+        try {
+            const json = JSON.stringify(locations, null, 2);
+            await new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder: 'chuncheon-spy', public_id: 'locations', resource_type: 'raw', overwrite: true },
+                    (err, result) => err ? reject(err) : resolve(result)
+                );
+                stream.end(Buffer.from(json, 'utf8'));
+            });
+        } catch (error) {
+            console.error('Cloudinary 장소 데이터 저장 실패:', error);
+            return false;
+        }
+    }
+    return true;
+}
+
+// ==================== 영구 저장 헬퍼 (Cloudinary) ====================
+
+// 이미지 버퍼를 Cloudinary에 업로드하거나, 미설정 시 로컬 uploads/에 저장
+// 반환값: { url, publicId } (로컬 저장 시 publicId는 null)
+async function saveImage(file) {
+    if (!file) return { url: null, publicId: null };
+
+    if (cloudinaryConfigured) {
+        return new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                { folder: 'chuncheon-spy/locations', resource_type: 'image' },
+                (error, result) => {
+                    if (error) return reject(error);
+                    resolve({ url: result.secure_url, publicId: result.public_id });
+                }
+            );
+            stream.end(file.buffer);
+        });
+    }
+
+    // Fallback: 로컬 디스크 저장
+    const uploadDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+    const filename = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
+    fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+    return { url: `/uploads/${filename}`, publicId: null };
+}
+
+// Cloudinary 이미지 삭제 (로컬인 경우 파일 삭제)
+async function deleteImage(location) {
+    if (!location || !location.image) return;
+    try {
+        if (cloudinaryConfigured && location.publicId) {
+            await cloudinary.uploader.destroy(location.publicId);
+        } else if (!cloudinaryConfigured) {
+            const photoPath = path.join(__dirname, location.image);
+            if (fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
+        }
+    } catch (error) {
+        console.error('이미지 삭제 실패:', error);
     }
 }
 
@@ -98,12 +179,16 @@ const defaultChuncheonLocations = [
     { id: '8', name: '춘천 호수', emoji: '🏞️', description: '아름다운 경관의 인공 호수', image: null }
 ];
 
-// 장소 데이터 초기화
-let chuncheonLocations = loadLocations();
-if (chuncheonLocations.length === 0) {
-    chuncheonLocations = [...defaultChuncheonLocations];
-    saveLocations(chuncheonLocations);
-}
+// 장소 데이터 초기화 (비동기 로드)
+let chuncheonLocations = [];
+
+(async () => {
+    chuncheonLocations = await loadLocations();
+    if (chuncheonLocations.length === 0) {
+        chuncheonLocations = [...defaultChuncheonLocations];
+        await saveLocations(chuncheonLocations);
+    }
+})();
 
 // ==================== 게임 방 관리 API ====================
 
@@ -137,13 +222,13 @@ app.delete('/api/rooms/:gameId', (req, res) => {
 // ==================== 장소 관리 API ====================
 
 // 모든 장소 조회
-app.get('/api/locations', (req, res) => {
-    const locations = loadLocations();
+app.get('/api/locations', async (req, res) => {
+    const locations = await loadLocations();
     res.json(locations);
 });
 
 // 장소 추가
-app.post('/api/locations', upload.single('image'), (req, res) => {
+app.post('/api/locations', upload.single('image'), async (req, res) => {
     try {
         const { name, description } = req.body;
         const image = req.file;
@@ -152,12 +237,15 @@ app.post('/api/locations', upload.single('image'), (req, res) => {
             return res.status(400).json({ error: '장소 이름과 설명은 필수입니다.' });
         }
         
-        const locations = loadLocations();
+        const locations = await loadLocations();
         
         // 중복 이름 확인
         if (locations.some(loc => loc.name === name)) {
             return res.status(400).json({ error: '이미 존재하는 장소 이름입니다.' });
         }
+        
+        // 이미지를 영구 저장소(Cloudinary 또는 로컬)에 업로드
+        const savedImage = await saveImage(image);
         
         const newId = Date.now().toString();
         const newLocation = {
@@ -165,7 +253,8 @@ app.post('/api/locations', upload.single('image'), (req, res) => {
             name: name,
             emoji: '📍',
             description: description,
-            image: image ? `/uploads/${image.filename}` : null
+            image: savedImage.url,
+            publicId: savedImage.publicId
         };
         
         locations.push(newLocation);
@@ -181,28 +270,24 @@ app.post('/api/locations', upload.single('image'), (req, res) => {
             res.status(500).json({ error: '장소 저장에 실패했습니다.' });
         }
     } catch (error) {
+        console.error('장소 추가 오류:', error);
         res.status(500).json({ error: '장소 추가 중 오류가 발생했습니다.' });
     }
 });
 
 // 장소 삭제
-app.delete('/api/locations/:id', (req, res) => {
+app.delete('/api/locations/:id', async (req, res) => {
     try {
         const id = req.params.id;
-        let locations = loadLocations();
+        let locations = await loadLocations();
         
         const index = locations.findIndex(loc => loc.id === id);
         
         if (index !== -1) {
             const deleted = locations[index];
             
-            // 사진 파일 삭제
-            if (deleted.image) {
-                const photoPath = path.join(__dirname, deleted.image);
-                if (fs.existsSync(photoPath)) {
-                    fs.unlinkSync(photoPath);
-                }
-            }
+            // 영구 저장소(Cloudinary 또는 로컬)에서 사진 삭제
+            await deleteImage(deleted);
             
             locations.splice(index, 1);
             
@@ -220,25 +305,33 @@ app.delete('/api/locations/:id', (req, res) => {
             res.status(404).json({ error: '장소를 찾을 수 없습니다.' });
         }
     } catch (error) {
+        console.error('장소 삭제 오류:', error);
         res.status(500).json({ error: '장소 삭제 중 오류가 발생했습니다.' });
     }
 });
 
 // 장소 수정
-app.put('/api/locations/:id', upload.single('image'), (req, res) => {
+app.put('/api/locations/:id', upload.single('image'), async (req, res) => {
     try {
         const id = req.params.id;
         const { name, description } = req.body;
         const image = req.file;
         
-        let locations = loadLocations();
+        let locations = await loadLocations();
         
         const index = locations.findIndex(loc => loc.id === id);
         
         if (index !== -1) {
             if (name) locations[index].name = name;
             if (description) locations[index].description = description;
-            if (image) locations[index].image = `/uploads/${image.filename}`;
+            
+            // 새 이미지가 업로드된 경우에만 교체 (기존 이미지 삭제 후 새로 업로드)
+            if (image) {
+                await deleteImage(locations[index]);
+                const savedImage = await saveImage(image);
+                locations[index].image = savedImage.url;
+                locations[index].publicId = savedImage.publicId;
+            }
             
             if (saveLocations(locations)) {
                 chuncheonLocations = locations;
@@ -254,6 +347,7 @@ app.put('/api/locations/:id', upload.single('image'), (req, res) => {
             res.status(404).json({ error: '장소를 찾을 수 없습니다.' });
         }
     } catch (error) {
+        console.error('장소 수정 오류:', error);
         res.status(500).json({ error: '장소 수정 중 오류가 발생했습니다.' });
     }
 });

@@ -15,6 +15,24 @@
    - 스파이를 잡으면 시민 승리! 🎉
    - 스파이를 못 찾으면 스파이 승리! 🕵️
 
+## 📸 사진/장소 데이터 영구 저장 (중요)
+
+이 게임은 장소 사진과 장소 목록을 서버에 저장합니다. **Render 무료 플랜은 재배포(또는 인스턴스 재시작) 시 파일시스템이 초기화**되므로, 설정 없이 그대로 배포하면 올린 사진과 추가한 장소가 사라집니다.
+
+이를 해결하려면 **Cloudinary**(무료 외부 이미지 호스팅)를 연동하세요. 연동 시:
+- 업로드한 사진 → Cloudinary에 저장되어 **재배포 후에도 유지**
+- 장소 목록 데이터 → Cloudinary raw 파일로 백업되어 **재배포 후에도 유지**
+
+### Cloudinary 설정 방법
+1. https://console.cloudinary.com/ 에서 무료 가입
+2. Dashboard에서 `Cloud Name`, `API Key`, `API Secret` 확인
+3. 환경변수 설정:
+   - **로컬**: `.env.example`을 `.env`로 복사 후 값 입력
+   - **Render**: Dashboard → Environment → `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` 추가
+4. 서버 재시작
+
+> 환경변수를 설정하지 않으면 기존처럼 로컬 `uploads/` 폴더에 저장되며, 콘솔에 경고가 표시됩니다(재배포 시 사라짐).
+
 ## 🚀 배포 방법 (무료 호스팅)
 
 ### ⚠️ 중요: GitHub Pages는 사용 불가
