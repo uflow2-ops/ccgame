@@ -15,6 +15,10 @@ app.use(express.json());
 // 게임 상태 저장
 const games = {};
 
+// 게임 설정
+const MAX_PLAYERS_PER_ROOM = 6;  // 방당 최대 인원
+const MIN_PLAYERS_TO_START = 2;  // 게임 시작 최소 인원
+
 // 춘천 장소 데이터
 const chuncheonLocations = [
     { name: '남춘천역', emoji: '🚉', description: '춘천의 중심 교통枢纽' },
@@ -62,20 +66,64 @@ io.on('connection', (socket) => {
         io.to(gameId).emit('playerJoined', { playerName, playerCount: games[gameId].players.length });
     });
 
-    // 게임 참가
+    // 게임 참가 (자동 방 분배 기능)
     socket.on('joinGame', ({ gameId, playerName }) => {
+        // 해당 게임이 존재하는지 확인
         if (!games[gameId]) {
             socket.emit('error', '게임을 찾을 수 없습니다.');
             return;
         }
         
-        if (games[gameId].status !== 'waiting') {
+        const game = games[gameId];
+        
+        // 게임이 이미 시작되었는지 확인
+        if (game.status !== 'waiting') {
             socket.emit('error', '이미 게임이 시작되었습니다.');
             return;
         }
         
-        socket.join(gameId);
-        socket.gameId = gameId;
+        // 방이 꽉 찼는지 확인
+        let targetGameId = gameId;
+        if (game.players.length >= MAX_PLAYERS_PER_ROOM) {
+            // 같은 호스트의 다른 방 찾기
+            const hostGames = Object.values(games).filter(g => 
+                g.hostId === game.hostId && 
+                g.status === 'waiting' && 
+                g.players.length < MAX_PLAYERS_PER_ROOM
+            );
+            
+            if (hostGames.length > 0) {
+                // 여유 있는 방이 있으면 그 방에 배정
+                targetGameId = hostGames[0].id;
+                socket.emit('roomReassigned', { 
+                    newGameId: targetGameId,
+                    message: `방이 꽉 차서 자동으로 다른 방(${targetGameId})에 배정되었습니다.`
+                });
+            } else {
+                // 여유 있는 방이 없으면 새 방 생성
+                const newGameId = uuidv4().substring(0, 6);
+                games[newGameId] = {
+                    id: newGameId,
+                    players: [],
+                    status: 'waiting',
+                    spyId: null,
+                    locations: [],
+                    descriptions: {},
+                    votes: {},
+                    hostId: game.hostId  // 같은 호스트
+                };
+                
+                targetGameId = newGameId;
+                socket.emit('roomReassigned', { 
+                    newGameId: targetGameId,
+                    message: `새 방(${targetGameId})이 생성되어 배정되었습니다.`
+                });
+            }
+        }
+        
+        // 게임에 참가
+        socket.join(targetGameId);
+        socket.gameId = targetGameId;
         
         const player = {
             id: socket.id,
@@ -85,14 +133,14 @@ io.on('connection', (socket) => {
             hasWritten: false
         };
         
-        games[gameId].players.push(player);
+        games[targetGameId].players.push(player);
         
-        io.to(gameId).emit('playerJoined', { 
+        io.to(targetGameId).emit('playerJoined', { 
             playerName, 
-            playerCount: games[gameId].players.length 
+            playerCount: games[targetGameId].players.length 
         });
         
-        socket.emit('gameJoined', { gameId, playerId: socket.id });
+        socket.emit('gameJoined', { gameId: targetGameId, playerId: socket.id });
     });
 
     // 게임 시작

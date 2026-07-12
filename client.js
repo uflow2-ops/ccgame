@@ -1,4 +1,4 @@
-// Socket.io 연결
+    // Socket.io 연결
 const socket = io();
 
 // 게임 상태
@@ -315,6 +315,12 @@ socket.on('gameRestarted', () => {
 // 에러
 socket.on('error', (message) => {
     showPopup(message);
+});
+
+// 방 재배정
+socket.on('roomReassigned', (data) => {
+    showPopup(data.message);
+    gameState.gameId = data.newGameId;
 });
 
 // ==================== 이벤트 리스너 ====================
