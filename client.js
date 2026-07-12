@@ -147,6 +147,12 @@ socket.on('gameCreated', (data) => {
 socket.on('gameJoined', (data) => {
     gameState.gameId = data.gameId;
     gameState.playerId = data.playerId;
+    showScreen('waiting-room');
+});
+
+// 세션 참가됨
+socket.on('sessionJoined', (data) => {
+    gameState.sessionId = data.sessionId;
 });
 
 // 플레이어 참가
@@ -174,9 +180,15 @@ socket.on('playerLeft', (data) => {
     location.reload();
 });
 
-// 게임 시작됨
+// 게임 시작됨 (세션에서 자동 배정 후)
 socket.on('gameStarted', (data) => {
-    showPopup('게임이 시작되었습니다!');
+    if (data.message) {
+        // 세션에서 시작된 경우
+        showPopup(data.message, 2000);
+    } else {
+        // 기존 게임에서 시작된 경우
+        showPopup('게임이 시작되었습니다!', 2000);
+    }
 });
 
 // 스파이 역할

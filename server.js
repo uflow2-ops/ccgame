@@ -49,12 +49,15 @@ const upload = multer({
 // 게임 상태 저장
 const games = {};
 
+// 게임 세션 상태 저장 (교사가 생성한 세션)
+const sessions = {};
+
 // 게임 설정
 const MAX_PLAYERS_PER_ROOM = 5;
 const MIN_PLAYERS_TO_START = 2;
 
 // 접속한 학생 목록 추적
-const connectedStudents = new Map(); // socket.id -> { name, connectTime, gameId }
+const connectedStudents = new Map(); // socket.id -> { name, connectTime, sessionId, status }
 
 // 장소 데이터 파일 경로
 const LOCATIONS_FILE = path.join(__dirname, 'locations.json');
@@ -553,74 +556,123 @@ io.on('connection', (socket) => {
         io.to(gameId).emit('gameRestarted');
     });
 
-    // 교사용: 방 생성
-    socket.on('teacherCreateRoom', () => {
-        const gameId = Math.floor(100000 + Math.random() * 900000).toString();
-        games[gameId] = {
-            id: gameId,
-            players: [],
-            status: 'waiting',
-            spyId: null,
-            locations: [],
-            descriptions: {},
-            votes: {},
-            hostId: socket.id
+    // 교사용: 세션 생성 (대기실)
+    socket.on('teacherCreateSession', () => {
+        const sessionId = Math.floor(100000 + Math.random() * 900000).toString();
+        sessions[sessionId] = {
+            id: sessionId,
+            teacherId: socket.id,
+            status: 'waiting', // waiting, playing, ended
+            students: [],
+            rooms: [],
+            startTime: null
         };
         
-        socket.emit('roomCreated', { gameId });
+        socket.join(sessionId);
+        socket.sessionId = sessionId;
+        
+        socket.emit('sessionCreated', { sessionId });
     });
     
-    // 교사용: 게임 시작
-    socket.on('teacherStartGame', ({ gameId, duration }) => {
-        if (!games[gameId]) {
-            socket.emit('error', '게임 방을 찾을 수 없습니다.');
+    // 교사용: 세션 시작 (자동으로 방 배정)
+    socket.on('teacherStartSession', ({ sessionId, duration }) => {
+        if (!sessions[sessionId]) {
+            socket.emit('error', '세션을 찾을 수 없습니다.');
             return;
         }
         
-        const game = games[gameId];
+        const session = sessions[sessionId];
         
-        if (game.players.length < 2) {
-            socket.emit('error', '최소 2명의 플레이어가 필요합니다.');
+        if (session.students.length < 2) {
+            socket.emit('error', '최소 2명의 학생이 필요합니다.');
             return;
         }
         
-        game.status = 'playing';
-        game.gameDuration = duration * 60; // Convert to seconds
-        game.startTime = Date.now();
-        game.completionTimes = {}; // Track when each player completes
+        session.status = 'playing';
+        session.startTime = Date.now();
         
-        // 스파이 선택
-        const spyIndex = Math.floor(Math.random() * game.players.length);
-        game.spyId = game.players[spyIndex].id;
-        game.players[spyIndex].isSpy = true;
+        // 학생들을 3~5명씩 그룹으로 나누기
+        const shuffledStudents = [...session.students].sort(() => Math.random() - 0.5);
+        const rooms = [];
         
-        // 장소 할당 (스파이 제외)
-        const shuffledLocations = [...chuncheonLocations].sort(() => Math.random() - 0.5);
-        const citizenLocations = shuffledLocations.slice(0, game.players.length - 1);
+        for (let i = 0; i < shuffledStudents.length; i += MAX_PLAYERS_PER_ROOM) {
+            const roomStudents = shuffledStudents.slice(i, i + MAX_PLAYERS_PER_ROOM);
+            const gameId = Math.floor(100000 + Math.random() * 900000).toString();
+            
+            // 게임 생성
+            games[gameId] = {
+                id: gameId,
+                players: [],
+                status: 'playing',
+                spyId: null,
+                locations: [],
+                descriptions: {},
+                votes: {},
+                hostId: socket.id,
+                sessionId: sessionId,
+                gameDuration: duration * 60,
+                startTime: Date.now(),
+                completionTimes: {}
+            };
+            
+            // 스파이 선택
+            const spyIndex = Math.floor(Math.random() * roomStudents.length);
+            const spyId = roomStudents[spyIndex].id;
+            
+            // 장소 할당 (스파이 제외)
+            const shuffledLocations = [...chuncheonLocations].sort(() => Math.random() - 0.5);
+            const citizenLocations = shuffledLocations.slice(0, roomStudents.length - 1);
+            
+            let locationIndex = 0;
+            roomStudents.forEach((student, index) => {
+                const player = {
+                    id: student.id,
+                    name: student.name,
+                    location: null,
+                    isSpy: index === spyIndex,
+                    hasWritten: false
+                };
+                
+                games[gameId].players.push(player);
+                
+                // 학생을 게임 방에 참가시킴 (io.to를 사용하여 해당 학생에게만 전송)
+                io.to(student.id).sockets.join(gameId);
+                
+                // 역할 전송
+                if (index === spyIndex) {
+                    io.to(student.id).emit('spyRole', {
+                        message: '당신은 스파이입니다! 다른 플레이어들이 어떤 장소를 받았는지 추리해보세요.'
+                    });
+                } else {
+                    player.location = citizenLocations[locationIndex];
+                    locationIndex++;
+                    io.to(student.id).emit('citizenRole', {
+                        location: player.location,
+                        message: `당신의 장소는 ${player.location.emoji} ${player.location.name}입니다. 이 장소에 대한 설명을 작성해주세요.`
+                    });
+                }
+            });
+            
+            rooms.push({
+                gameId: gameId,
+                players: roomStudents.map(s => ({ id: s.id, name: s.name }))
+            });
+        }
         
-        let locationIndex = 0;
-        game.players.forEach(player => {
-            if (player.id === game.spyId) {
-                player.location = null;
-                socket.to(player.id).emit('spyRole', {
-                    message: '당신은 스파이입니다! 다른 플레이어들이 어떤 장소를 받았는지 추리해보세요.'
-                });
-            } else {
-                player.location = citizenLocations[locationIndex];
-                locationIndex++;
-                socket.to(player.id).emit('citizenRole', {
-                    location: player.location,
-                    message: `당신의 장소는 ${player.location.emoji} ${player.location.name}입니다. 이 장소에 대한 설명을 작성해주세요.`
-                });
-            }
+        session.rooms = rooms;
+        
+        // 모든 학생에게 게임 시작 알림
+        session.students.forEach(student => {
+            io.to(student.id).emit('gameStarted', { 
+                message: '게임이 시작되었습니다! 역할을 확인해주세요.'
+            });
         });
         
-        io.to(gameId).emit('gameStarted', { 
-            playerCount: game.players.length,
-            duration: duration
+        socket.emit('sessionStarted', { 
+            sessionId,
+            roomCount: rooms.length,
+            rooms: rooms
         });
-        
-        socket.emit('gameStarted');
     });
 
     // 학생 접속 (대기실)
@@ -629,7 +681,7 @@ io.on('connection', (socket) => {
         connectedStudents.set(socket.id, {
             name: data.name,
             connectTime: data.connectTime,
-            gameId: null,
+            sessionId: null,
             status: '대기중'
         });
         
@@ -652,21 +704,57 @@ io.on('connection', (socket) => {
         })));
     });
     
-    // 학생이 게임에 참가
-    socket.on('joinGame', ({ gameId, playerName }) => {
-        // 기존 studentConnected 데이터가 있으면 gameId 업데이트
-        if (connectedStudents.has(socket.id)) {
-            const studentInfo = connectedStudents.get(socket.id);
-            studentInfo.gameId = gameId;
-            studentInfo.status = '게임 참가';
-            connectedStudents.set(socket.id, studentInfo);
-            
-            // 모든 교사에게 학생 목록 업데이트
-            io.emit('updateStudentList', Array.from(connectedStudents.entries()).map(([id, info]) => ({
-                id,
-                ...info
-            })));
+    // 학생이 세션에 참가
+    socket.on('studentJoinSession', ({ sessionId, studentName }) => {
+        if (!sessions[sessionId]) {
+            socket.emit('error', '세션을 찾을 수 없습니다.');
+            return;
         }
+        
+        const session = sessions[sessionId];
+        
+        if (session.status !== 'waiting') {
+            socket.emit('error', '이미 게임이 시작되었습니다.');
+            return;
+        }
+        
+        // 학생 정보 업데이트
+        const studentInfo = connectedStudents.get(socket.id);
+        if (studentInfo) {
+            studentInfo.sessionId = sessionId;
+            studentInfo.status = '세션 참가';
+            connectedStudents.set(socket.id, studentInfo);
+        } else {
+            connectedStudents.set(socket.id, {
+                name: studentName,
+                connectTime: new Date().toLocaleTimeString('ko-KR'),
+                sessionId: sessionId,
+                status: '세션 참가'
+            });
+        }
+        
+        // 세션에 학생 추가
+        session.students.push({
+            id: socket.id,
+            name: studentName
+        });
+        
+        socket.join(sessionId);
+        socket.sessionId = sessionId;
+        
+        // 모든 교사에게 학생 목록 업데이트
+        io.emit('updateStudentList', Array.from(connectedStudents.entries()).map(([id, info]) => ({
+            id,
+            ...info
+        })));
+        
+        // 세션의 모든 학생에게 참가 알림
+        io.to(sessionId).emit('studentJoinedSession', {
+            studentName,
+            studentCount: session.students.length
+        });
+        
+        socket.emit('sessionJoined', { sessionId });
     });
     
     // 연결 해제

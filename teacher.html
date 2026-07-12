@@ -432,9 +432,9 @@
         
         <!-- 게임 방 관리 -->
         <div class="room-management">
-            <h2 class="section-title">🎮 게임 방 관리</h2>
+            <h2 class="section-title">🎮 게임 세션 관리</h2>
             <div class="room-controls">
-                <button class="btn btn-success" onclick="createRoom()">➕ 새 방 만들기</button>
+                <button class="btn btn-success" onclick="createSession()">➕ 새 세션 만들기</button>
             </div>
             <div id="rooms-list" class="rooms-list"></div>
         </div>
@@ -458,7 +458,7 @@
                 <button class="btn btn-primary" onclick="toggleStudentList()">📋 학생 목록 보기</button>
                 <span class="student-count" id="student-count">접속 학생: 0명</span>
             </div>
-            <div id="student-list-container" class="student-list-container" style="display: none;">
+            <div id="student-list-container" class="student-list-container" style="display: block;">
                 <div id="student-list" class="student-list"></div>
             </div>
         </div>
@@ -514,11 +514,12 @@
         let locations = [];
         let editingId = null;
         let rooms = [];
+        let currentSession = null;
         
         // 페이지 로드 시 장소 목록 가져오기
         document.addEventListener('DOMContentLoaded', async () => {
             await loadLocations();
-            loadRooms();
+            loadSessions();
             setupEventListeners();
         });
         
@@ -712,30 +713,56 @@
             document.getElementById('cancel-btn').style.display = 'none';
         }
         
-        // 게임 방 생성
-        function createRoom() {
-            socket.emit('teacherCreateRoom');
+        // 세션 생성
+        function createSession() {
+            socket.emit('teacherCreateSession');
         }
         
-        // 게임 방 목록 불러오기
-        async function loadRooms() {
+        // 세션 시작
+        function startSession() {
+            if (!confirm('게임을 시작하시겠습니까?\n\n학생들이 자동으로 3~5명씩 그룹으로 나뉘어 게임이 시작됩니다.')) return;
+            
+            const duration = document.getElementById('game-duration').value;
+            
+            if (!currentSession) {
+                showMessage('활성화된 세션이 없습니다.', 'error');
+                return;
+            }
+            
+            if (currentSession.students.length < 2) {
+                showMessage('최소 2명의 학생이 필요합니다.', 'error');
+                return;
+            }
+            
+            socket.emit('teacherStartSession', { 
+                sessionId: currentSession.id, 
+                duration: parseInt(duration) 
+            });
+        }
+        
+        // 세션 목록 불러오기
+        async function loadSessions() {
             try {
                 const response = await fetch('/api/rooms');
                 rooms = await response.json();
-                renderRooms();
+                
+                // 현재 대기중인 세션 찾기
+                currentSession = rooms.find(r => r.status === 'waiting') || null;
+                
+                renderSessions();
             } catch (error) {
-                console.error('방 목록을 불러오는 중 오류가 발생했습니다:', error);
+                console.error('세션 목록을 불러오는 중 오류가 발생했습니다:', error);
             }
         }
         
-        // 게임 방 목록 렌더링
-        function renderRooms() {
+        // 세션 목록 렌더링
+        function renderSessions() {
             const container = document.getElementById('rooms-list');
             
             if (rooms.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <p>생성된 방이 없습니다.</p>
+                        <p>생성된 세션이 없습니다.</p>
                     </div>
                 `;
                 return;
@@ -744,49 +771,20 @@
             container.innerHTML = rooms.map(room => `
                 <div class="room-item">
                     <div class="room-info">
-                        <div class="room-code">🎮 방 코드: ${room.gameId}</div>
+                        <div class="room-code">🎮 세션 코드: ${room.gameId}</div>
                         <div class="room-status">
-                            👥 ${room.playerCount}명 / 5명 | 
+                            👥 ${room.playerCount}명 | 
                             상태: ${room.status === 'waiting' ? '대기중' : room.status === 'playing' ? '게임중' : '종료'}
                         </div>
                     </div>
                     <div class="room-actions">
                         ${room.status === 'waiting' ? `
-                            <button class="btn btn-primary" onclick="startRoomGame('${room.gameId}')">▶️ 시작</button>
+                            <button class="btn btn-primary" onclick="startSession()">▶️ 게임 시작</button>
                         ` : ''}
                         <button class="btn btn-danger" onclick="deleteRoom('${room.gameId}')">🗑️ 삭제</button>
                     </div>
                 </div>
             `).join('');
-        }
-        
-        // 게임 방 시작
-        function startRoomGame(gameId) {
-            if (!confirm('게임을 시작하시겠습니까?')) return;
-            const duration = document.getElementById('game-duration').value;
-            socket.emit('teacherStartGame', { gameId, duration: parseInt(duration) });
-        }
-        
-        // 게임 방 삭제
-        async function deleteRoom(gameId) {
-            if (!confirm('정말로 이 방을 삭제하시겠습니까?')) return;
-            
-            try {
-                const response = await fetch(`/api/rooms/${gameId}`, {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showMessage(result.message, 'success');
-                    await loadRooms();
-                } else {
-                    showMessage(result.error || '삭제 중 오류가 발생했습니다.', 'error');
-                }
-            } catch (error) {
-                showMessage('서버와 통신 중 오류가 발생했습니다.', 'error');
-            }
         }
         
         // 학생 목록 토글
@@ -833,19 +831,24 @@
         }
         
         // Socket 이벤트 핸들러
-        socket.on('roomCreated', (data) => {
-            showMessage(`방이 생성되었습니다! 코드: ${data.gameId}`, 'success');
-            loadRooms();
+        socket.on('sessionCreated', (data) => {
+            showMessage(`세션이 생성되었습니다! 코드: ${data.gameId}`, 'success');
+            loadSessions();
+        });
+        
+        socket.on('sessionStarted', (data) => {
+            showMessage(`게임이 시작되었습니다! ${data.roomCount}개의 방이 생성되었습니다.`, 'success');
+            loadSessions();
         });
         
         socket.on('roomDeleted', () => {
             showMessage('방이 삭제되었습니다.', 'success');
-            loadRooms();
+            loadSessions();
         });
         
         socket.on('gameStarted', () => {
             showMessage('게임이 시작되었습니다!', 'success');
-            loadRooms();
+            loadSessions();
         });
         
         socket.on('updateStudentList', (students) => {

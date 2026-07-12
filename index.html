@@ -172,6 +172,17 @@
             } else {
                 document.getElementById('teacher-link').style.display = 'none';
             }
+            
+            // 게임 코드로 자동 참가
+            const gameId = urlParams.get('gameId');
+            const name = urlParams.get('name');
+            
+            if (gameId && name) {
+                document.getElementById('join-game-id-input').value = gameId;
+                document.getElementById('join-player-name-input').value = decodeURIComponent(name);
+                // 자동으로 참가
+                setTimeout(() => joinGameFromStart(), 500);
+            }
         });
     </script>
 </body>
