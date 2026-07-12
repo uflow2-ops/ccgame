@@ -53,6 +53,9 @@ const games = {};
 const MAX_PLAYERS_PER_ROOM = 5;
 const MIN_PLAYERS_TO_START = 2;
 
+// 접속한 학생 목록 추적
+const connectedStudents = new Map(); // socket.id -> { name, connectTime, gameId }
+
 // 장소 데이터 파일 경로
 const LOCATIONS_FILE = path.join(__dirname, 'locations.json');
 
@@ -595,9 +598,67 @@ io.on('connection', (socket) => {
         socket.emit('gameStarted');
     });
 
+    // 학생 접속 (대기실)
+    socket.on('studentConnected', (data) => {
+        console.log('학생 접속:', data.name);
+        connectedStudents.set(socket.id, {
+            name: data.name,
+            connectTime: data.connectTime,
+            gameId: null,
+            status: '대기중'
+        });
+        
+        // 모든 교사에게 학생 목록 업데이트
+        io.emit('updateStudentList', Array.from(connectedStudents.entries()).map(([id, info]) => ({
+            id,
+            ...info
+        })));
+    });
+    
+    // 학생 연결 해제 (대기실)
+    socket.on('studentDisconnected', (data) => {
+        console.log('학생 연결 해제:', data.name);
+        connectedStudents.delete(socket.id);
+        
+        // 모든 교사에게 학생 목록 업데이트
+        io.emit('updateStudentList', Array.from(connectedStudents.entries()).map(([id, info]) => ({
+            id,
+            ...info
+        })));
+    });
+    
+    // 학생이 게임에 참가
+    socket.on('joinGame', ({ gameId, playerName }) => {
+        // 기존 studentConnected 데이터가 있으면 gameId 업데이트
+        if (connectedStudents.has(socket.id)) {
+            const studentInfo = connectedStudents.get(socket.id);
+            studentInfo.gameId = gameId;
+            studentInfo.status = '게임 참가';
+            connectedStudents.set(socket.id, studentInfo);
+            
+            // 모든 교사에게 학생 목록 업데이트
+            io.emit('updateStudentList', Array.from(connectedStudents.entries()).map(([id, info]) => ({
+                id,
+                ...info
+            })));
+        }
+    });
+    
     // 연결 해제
     socket.on('disconnect', () => {
         console.log('플레이어 연결 해제:', socket.id);
+        
+        // 학생 목록에서 제거
+        if (connectedStudents.has(socket.id)) {
+            const studentName = connectedStudents.get(socket.id).name;
+            connectedStudents.delete(socket.id);
+            
+            // 모든 교사에게 학생 목록 업데이트
+            io.emit('updateStudentList', Array.from(connectedStudents.entries()).map(([id, info]) => ({
+                id,
+                ...info
+            })));
+        }
         
         Object.keys(games).forEach(gameId => {
             const game = games[gameId];

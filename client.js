@@ -17,18 +17,20 @@ function setupRoleBasedUI() {
     const urlParams = new URLSearchParams(window.location.search);
     const role = urlParams.get('role'); // 'teacher' or 'student'
     
-    const createButton = document.getElementById('create-button');
-    const buttonGroup = document.getElementById('button-group');
+    const createGameSection = document.getElementById('create-game-section');
+    const formDivider = document.getElementById('form-divider');
     const teacherLink = document.getElementById('teacher-link');
     
     if (role === 'teacher') {
-        // 교사용: 둘 다 표시
-        createButton.style.display = 'block';
+        // 교사용: 게임 만들기 표시
+        if (createGameSection) createGameSection.style.display = 'block';
+        if (formDivider) formDivider.style.display = 'block';
         if (teacherLink) teacherLink.style.display = 'none';
     } else {
-        // 학생용 또는 기본값: 게임 만들기 버튼 숨김, 교사 링크 표시
-        createButton.style.display = 'none';
-        if (teacherLink) teacherLink.style.display = 'block';
+        // 학생용 또는 기본값: 게임 만들기 숨김
+        if (createGameSection) createGameSection.style.display = 'none';
+        if (formDivider) formDivider.style.display = 'none';
+        if (teacherLink) teacherLink.style.display = 'none';
     }
 }
 

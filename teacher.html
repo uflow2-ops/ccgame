@@ -286,6 +286,85 @@
             margin-bottom: 15px;
         }
         
+        .student-management {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .student-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .student-count {
+            font-size: 16px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .student-list-container {
+            margin-top: 20px;
+        }
+        
+        .student-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .student-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #27ae60;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .student-info-item {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .student-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .student-details {
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+        
+        .student-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .student-status.playing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
         @media (max-width: 768px) {
             .locations-grid {
                 grid-template-columns: 1fr;
@@ -317,6 +396,20 @@
                 <button class="btn btn-success" onclick="createRoom()">➕ 새 방 만들기</button>
             </div>
             <div id="rooms-list" class="rooms-list"></div>
+        </div>
+        
+        <hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">
+        
+        <!-- 접속 학생 관리 -->
+        <div class="student-management">
+            <h2 class="section-title">👥 접속 학생 관리</h2>
+            <div class="student-controls">
+                <button class="btn btn-primary" onclick="toggleStudentList()">📋 학생 목록 보기</button>
+                <span class="student-count" id="student-count">접속 학생: 0명</span>
+            </div>
+            <div id="student-list-container" class="student-list-container" style="display: none;">
+                <div id="student-list" class="student-list"></div>
+            </div>
         </div>
         
         <hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">
@@ -644,6 +737,49 @@
             }
         }
         
+        // 학생 목록 토글
+        function toggleStudentList() {
+            const container = document.getElementById('student-list-container');
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+        
+        // 학생 목록 업데이트
+        function updateStudentList(students) {
+            const container = document.getElementById('student-list');
+            const countSpan = document.getElementById('student-count');
+            
+            countSpan.textContent = `접속 학생: ${students.length}명`;
+            
+            if (students.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👥</div>
+                        <p>접속한 학생이 없습니다.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = students.map(student => `
+                <div class="student-item">
+                    <div class="student-info-item">
+                        <div class="student-name">👤 ${student.name}</div>
+                        <div class="student-details">
+                            접속 시간: ${student.connectTime} | 
+                            ${student.gameId ? `게임 코드: ${student.gameId}` : '게임 미참가'}
+                        </div>
+                    </div>
+                    <span class="student-status ${student.status === '게임 참가' ? 'playing' : ''}">
+                        ${student.status}
+                    </span>
+                </div>
+            `).join('');
+        }
+        
         // Socket 이벤트 핸들러
         socket.on('roomCreated', (data) => {
             showMessage(`방이 생성되었습니다! 코드: ${data.gameId}`, 'success');
@@ -658,6 +794,10 @@
         socket.on('gameStarted', () => {
             showMessage('게임이 시작되었습니다!', 'success');
             loadRooms();
+        });
+        
+        socket.on('updateStudentList', (students) => {
+            updateStudentList(students);
         });
         
         // 메시지 표시

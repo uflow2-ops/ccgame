@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>춘천 스파이 게임 - 대기실</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            overflow-y: auto;
+            min-height: 100vh;
+        }
+        
+        .waiting-room-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .waiting-room-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .waiting-room-header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .connection-status {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #27ae60;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        
+        .student-info {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+        
+        .info-value {
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        
+        .waiting-message {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 16px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .action-buttons button {
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        @media (max-width: 768px) {
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .action-buttons button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="waiting-room-container">
+        <div class="waiting-room-header">
+            <h1>⏳ 학생 대기실</h1>
+            <p>선생님의 게임 시작을 기다리고 있습니다...</p>
+        </div>
+        
+        <div class="connection-status">
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                <span>서버에 연결됨</span>
+            </div>
+        </div>
+        
+        <div class="student-info">
+            <h2 style="color: #2c3e50; margin-bottom: 20px;">👤 내 정보</h2>
+            <div class="info-item">
+                <span class="info-label">이름:</span>
+                <span class="info-value" id="student-name">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">접속 시간:</span>
+                <span class="info-value" id="connect-time">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">상태:</span>
+                <span class="info-value" id="student-status">대기중</span>
+            </div>
+        </div>
+        
+        <div class="waiting-message">
+            <p>🎮 선생님이 게임을 시작할 때까지 잠시만 기다려주세요!</p>
+            <p style="margin-top: 10px; font-size: 14px;">게임 코드를 입력하면 자동으로 게임에 참가합니다.</p>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="big-button" onclick="goToMainPage()">🏠 메인 페이지로</button>
+            <button class="big-button secondary-button" onclick="joinGameWithCode()">🎯 게임 코드로 참가</button>
+        </div>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let studentName = '';
+        let connectTime = '';
+        
+        // URL 파라미터에서 이름 가져오기
+        const urlParams = new URLSearchParams(window.location.search);
+        studentName = urlParams.get('name') || '학생';
+        
+        // 접속 시간 설정
+        const now = new Date();
+        connectTime = now.toLocaleTimeString('ko-KR', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        
+        // 정보 표시
+        document.getElementById('student-name').textContent = studentName;
+        document.getElementById('connect-time').textContent = connectTime;
+        
+        // 서버에 학생 접속 알림
+        socket.emit('studentConnected', {
+            name: studentName,
+            connectTime: connectTime
+        });
+        
+        // 게임 시작 알림 받기
+        socket.on('gameStartNotification', (data) => {
+            if (data.gameId) {
+                showPopup(`게임이 시작되었습니다! 게임 코드: ${data.gameId}`);
+                setTimeout(() => {
+                    window.location.href = `/?gameId=${data.gameId}&name=${encodeURIComponent(studentName)}`;
+                }, 2000);
+            }
+        });
+        
+        // 상태 변경 알림
+        socket.on('statusUpdate', (data) => {
+            document.getElementById('student-status').textContent = data.status;
+        });
+        
+        // 메인 페이지로 이동
+        function goToMainPage() {
+            window.location.href = '/';
+        }
+        
+        // 게임 코드로 참가
+        function joinGameWithCode() {
+            const gameId = prompt('게임 코드를 입력하세요:');
+            if (gameId) {
+                window.location.href = `/?gameId=${gameId}&name=${encodeURIComponent(studentName)}`;
+            }
+        }
+        
+        // 팝업
+        function showPopup(message) {
+            const popup = document.createElement('div');
+            popup.className = 'popup';
+            popup.style.display = 'flex';
+            popup.innerHTML = `
+                <div class="popup-content">
+                    <p class="popup-message">${message}</p>
+                    <button class="popup-button" onclick="this.parentElement.parentElement.remove()">확인</button>
+                </div>
+            `;
+            document.body.appendChild(popup);
+        }
+        
+        // 페이지 떠날 때 연결 해제 알림
+        window.addEventListener('beforeunload', () => {
+            socket.emit('studentDisconnected', {
+                name: studentName
+            });
+        });
+    </script>
+</body>
+</html>

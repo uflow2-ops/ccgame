@@ -105,6 +105,29 @@ body {
     transform: scale(0.95);
 }
 
+.student-waiting-button {
+    display: inline-block;
+    padding: 15px 30px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #fff;
+    background: linear-gradient(145deg, #55efc4, #00b894);
+    text-decoration: none;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.student-waiting-button:active {
+    transform: scale(0.95);
+}
+
+.student-waiting-link {
+    text-align: center;
+    margin-top: 15px;
+}
+
 .name-input {
     width: 100%;
     padding: 20px;

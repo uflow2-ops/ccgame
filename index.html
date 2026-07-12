@@ -16,13 +16,13 @@
             <p class="intro-text">춘천의 장소를 맞춰보세요!</p>
             
             <div class="login-form">
-                <div class="form-section">
+                <div id="create-game-section" class="form-section" style="display: none;">
                     <h3 class="form-title">🎮 새 게임 만들기</h3>
                     <input type="text" id="create-player-name" placeholder="이름을 입력하세요" maxlength="10" class="name-input">
                     <button class="big-button" id="create-button" onclick="createGame()">게임 만들기</button>
                 </div>
                 
-                <div class="form-divider"></div>
+                <div id="form-divider" class="form-divider" style="display: none;"></div>
                 
                 <div class="form-section">
                     <h3 class="form-title">🎯 게임 참가하기</h3>
@@ -33,6 +33,10 @@
                 
                 <div id="teacher-link" class="teacher-link" style="display: none;">
                     <a href="teacher.html" class="teacher-button">교사용 페이지로 이동</a>
+                </div>
+                
+                <div class="student-waiting-link">
+                    <a href="waiting-room.html" class="student-waiting-button">👥 학생 대기실로 입장</a>
                 </div>
             </div>
         </div>
@@ -155,5 +159,20 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="client.js"></script>
+    
+    <script>
+        // URL 파라미터 확인하여 역할에 따라 UI 조정
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const role = urlParams.get('role');
+            
+            // role이 teacher인 경우에만 교사 링크 표시
+            if (role === 'teacher') {
+                document.getElementById('teacher-link').style.display = 'block';
+            } else {
+                document.getElementById('teacher-link').style.display = 'none';
+            }
+        });
+    </script>
 </body>
 </html>
