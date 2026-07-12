@@ -150,11 +150,6 @@ socket.on('gameJoined', (data) => {
     showScreen('waiting-room');
 });
 
-// 세션 참가됨
-socket.on('sessionJoined', (data) => {
-    gameState.sessionId = data.sessionId;
-});
-
 // 플레이어 참가
 socket.on('playerJoined', (data) => {
     const playersContainer = document.getElementById('players-container');
