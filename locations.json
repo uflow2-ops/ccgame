@@ -1,58 +1,135 @@
 [
     {
         "id": "1",
-        "name": "남춘천역",
-        "emoji": "🚉",
-        "description": "춘천의 교통 중심지",
+        "name": "김유정문학촌",
+        "emoji": "📚",
+        "description": "작가 김유정의 생가와 문학 공간",
         "image": null
     },
     {
         "id": "2",
+        "name": "풍물시장",
+        "emoji": "🎪",
+        "description": "춘천의 전통 풍물 문화를 체험할 수 있는 시장",
+        "image": null
+    },
+    {
+        "id": "3",
+        "name": "담작은도서관",
+        "emoji": "📖",
+        "description": "아늑한 분위기의 작은 도서관",
+        "image": null
+    },
+    {
+        "id": "4",
+        "name": "삼악산호수케이블카",
+        "emoji": "🚠",
+        "description": "삼악산과 호수를 한눈에 볼 수 있는 케이블카",
+        "image": null
+    },
+    {
+        "id": "5",
+        "name": "해피초원목장",
+        "emoji": "🐄",
+        "description": "넓은 초원에서 즐기는 목장 체험",
+        "image": null
+    },
+    {
+        "id": "6",
+        "name": "애니메이션박물관",
+        "emoji": "🎬",
+        "description": "한국 애니메이션의 역사와 문화를 만나는 공간",
+        "image": null
+    },
+    {
+        "id": "7",
+        "name": "소양강스카이워크",
+        "emoji": "🌉",
+        "description": "소양강 위를 걷는 짜릿한 하늘길",
+        "image": null
+    },
+    {
+        "id": "8",
+        "name": "남이섬",
+        "emoji": "🏝️",
+        "description": "자연과 문화가 어우러진 아름다운 섬",
+        "image": null
+    },
+    {
+        "id": "9",
+        "name": "육림랜드",
+        "emoji": "🎢",
+        "description": "가족과 함께 즐기는 테마파크",
+        "image": null
+    },
+    {
+        "id": "10",
+        "name": "레고랜드",
+        "emoji": "🧱",
+        "description": "레고로 만나는 즐거운 놀이 세상",
+        "image": null
+    },
+    {
+        "id": "11",
         "name": "공지천",
         "emoji": "💧",
         "description": "춘천의 아름다운 자연 호수",
         "image": null
     },
     {
-        "id": "3",
-        "name": "소양강 스카이워크",
-        "emoji": "🌉",
-        "description": "소양강 위를 걷는 짜릿한 하늘길",
+        "id": "12",
+        "name": "국립춘천박물관",
+        "emoji": "🏛️",
+        "description": "춘천의 역사와 문화를 보존하는 국립 박물관",
         "image": null
     },
     {
-        "id": "4",
-        "name": "닭갈비 골목",
+        "id": "13",
+        "name": "닭갈비골목",
         "emoji": "🍗",
         "description": "춘천의 대표 음식 맛집 거리",
         "image": null
     },
     {
-        "id": "5",
+        "id": "14",
+        "name": "춘천시립도서관",
+        "emoji": "📚",
+        "description": "춘천 시민을 위한 공공 도서관",
+        "image": null
+    },
+    {
+        "id": "15",
+        "name": "막국수체험박물관",
+        "emoji": "🍜",
+        "description": "춘천 막국수의 역사와 문화를 체험하는 공간",
+        "image": null
+    },
+    {
+        "id": "16",
+        "name": "소양강댐",
+        "emoji": "🏔️",
+        "description": "소양강을 가둔 대형 댐과 아름다운 경관",
+        "image": null
+    },
+    {
+        "id": "17",
+        "name": "박사마을글램핑장",
+        "emoji": "⛺",
+        "description": "자연 속에서 즐기는 고급 캠핑장",
+        "image": null
+    },
+    {
+        "id": "18",
         "name": "춘천시청",
-        "emoji": "🏛️",
+        "emoji": "🏢",
         "description": "춘천의 행정 중심지",
         "image": null
     },
     {
-        "id": "6",
-        "name": "무궁화 타워",
-        "emoji": "🌸",
-        "description": "춘천의 상징 탑",
-        "image": null
-    },
-    {
-        "id": "7",
-        "name": "김유정 문학촌",
-        "emoji": "📚",
-        "description": "작가 김유정의 생가와 문학 공간",
-        "image": null
-    },
-    {
-        "id": "8",
-        "name": "춘천 호수",
-        "emoji": "🏞️",
-        "description": "아름다운 경관의 인공 호수",
+        "id": "19",
+        "name": "남춘천초등학교",
+        "emoji": "🏫",
+        "description": "남춘천 지역의 초등학교",
         "image": null
     }
 ]
