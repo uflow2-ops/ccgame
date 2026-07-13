@@ -7,9 +7,22 @@
       "**/node_modules/**"
     ],
     "predeploy": [
-      "copy firebase-config.js public\\firebase-config.js"
+      "copy firebase-config.js public\\firebase-config.js",
+      "copy teacher.html public\\teacher.html",
+      "copy index.html public\\index.html",
+      "copy locations.html public\\locations.html",
+      "copy client.js public\\client.js",
+      "copy styles.css public\\styles.css"
     ],
     "rewrites": [
+      {
+        "source": "/teacher.html",
+        "destination": "/teacher.html"
+      },
+      {
+        "source": "/locations.html",
+        "destination": "/locations.html"
+      },
       {
         "source": "**",
         "destination": "/index.html"

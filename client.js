@@ -1,6 +1,3 @@
-// Firebase 초기화 (index.html에서 설정한 firebaseConfig 사용)
-const database = firebase.database();
-
 // 게임 상태
 let gameState = {
     playerId: null,
@@ -25,6 +22,16 @@ let locationsRef = null;
 
 // ==================== Firebase 초기화 ====================
 function initFirebase() {
+    // Firebase가 초기화되었는지 확인
+    if (!firebase.apps.length) {
+        console.error('Firebase가 초기화되지 않았습니다.');
+        showPopup('Firebase 초기화 오류가 발생했습니다. 페이지를 새로고침해주세요.');
+        return;
+    }
+    
+    // 전역 database 객체 사용
+    const database = window.database || firebase.database();
+    
     // 로비 참조
     lobbyRef = database.ref('lobby');
     // 장소 참조
@@ -106,26 +113,42 @@ function clearGameInfo() {
 // ==================== 로비 입장 ====================
 function enterLobby() {
     const playerName = document.getElementById('lobby-player-name').value.trim();
+    const teacherCode = document.getElementById('teacher-code-input').value.trim();
     
     if (!playerName) {
         showPopup('이름을 입력해주세요!');
         return;
     }
     
+    if (!teacherCode) {
+        showPopup('교사 코드를 입력해주세요!');
+        return;
+    }
+    
     gameState.playerName = playerName;
     gameState.playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    gameState.teacherCode = teacherCode;
     
-    // Firebase에 플레이어 추가
-    lobbyRef.child(gameState.playerId).set({
+    // Firebase 참조
+    const database = window.database || firebase.database();
+    
+    // 교사별 로비에 플레이어 추가
+    database.ref('lobby/' + teacherCode + '/' + gameState.playerId).set({
         name: playerName,
         joinedAt: Date.now()
+    }).then(() => {
+        // 브라우저가 닫힐 때 자동으로 로비에서 제거
+        database.ref('lobby/' + teacherCode + '/' + gameState.playerId).onDisconnect().remove();
+        
+        // 로비 화면으로 이동
+        showScreen('lobby-screen');
+        
+        // 장소 목록 미리 로드
+        loadLobbyLocations();
+    }).catch(error => {
+        console.error('로비 입장 실패:', error);
+        showPopup('로비 입장에 실패했습니다. 교사 코드를 확인해주세요.\n\n오류: ' + error.message, 'error');
     });
-    
-    // 로비 화면으로 이동
-    showScreen('lobby-screen');
-    
-    // 장소 목록 미리 로드
-    loadLobbyLocations();
 }
 
 // ==================== 교사 세션 시작 ====================
@@ -141,6 +164,9 @@ function startTeacherSession() {
     gameState.playerId = 'teacher_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
     gameState.isTeacher = true;
     
+    // Firebase 참조
+    const database = window.database || firebase.database();
+    
     // 교사 세션 생성
     database.ref('teacher').set({
         teacherId: gameState.playerId,
@@ -154,6 +180,10 @@ function startTeacherSession() {
         joinedAt: Date.now(),
         isTeacher: true
     });
+    
+    // 브라우저가 닫힐 때 자동으로 로비에서 제거
+    database.ref('lobby/' + gameState.playerId).onDisconnect().remove();
+    database.ref('teacher').onDisconnect().remove();
 }
 
 // ==================== 게임 시작 (교사) ====================
@@ -367,31 +397,47 @@ function closePopup() {
 
 // 로비 업데이트 (참가자 목록)
 function setupLobbyListener() {
-    lobbyRef.on('value', snapshot => {
-        const players = snapshot.val() || {};
-        const container = document.getElementById('lobby-players-container');
-        container.innerHTML = '';
-        
-        const playerList = Object.entries(players).filter(([id, p]) => !p.isTeacher);
-        
-        if (playerList.length === 0) {
-            container.innerHTML = '<div class="empty-lobby">아직 참가자가 없습니다.</div>';
-            document.getElementById('lobby-player-count').textContent = '현재 0명';
-            return;
-        }
-        
-        playerList.forEach(([id, player]) => {
-            const playerItem = document.createElement('div');
-            playerItem.className = 'player-item';
-            playerItem.innerHTML = `
-                <span class="player-emoji">👤</span>
-                <span>${player.name}</span>
-            `;
-            container.appendChild(playerItem);
+    const database = window.database || firebase.database();
+    
+    // 교사별 로비 감시
+    const teacherCode = gameState.teacherCode;
+    if (!teacherCode) {
+        // 교사 코드가 없으면 전체 로비 감시 (기존 방식)
+        lobbyRef.on('value', snapshot => {
+            updateLobbyPlayers(snapshot.val() || {});
         });
-        
-        document.getElementById('lobby-player-count').textContent = `현재 ${playerList.length}명`;
+    } else {
+        // 교사별 로비 감시
+        database.ref('lobby/' + teacherCode).on('value', snapshot => {
+            updateLobbyPlayers(snapshot.val() || {});
+        });
+    }
+}
+
+// 로비 플레이어 목록 업데이트
+function updateLobbyPlayers(players) {
+    const container = document.getElementById('lobby-players-container');
+    container.innerHTML = '';
+    
+    const playerList = Object.entries(players).filter(([id, p]) => !p.isTeacher);
+    
+    if (playerList.length === 0) {
+        container.innerHTML = '<div class="empty-lobby">아직 참가자가 없습니다.</div>';
+        document.getElementById('lobby-player-count').textContent = '현재 0명';
+        return;
+    }
+    
+    playerList.forEach(([id, player]) => {
+        const playerItem = document.createElement('div');
+        playerItem.className = 'player-item';
+        playerItem.innerHTML = `
+            <span class="player-emoji">👤</span>
+            <span>${player.name}</span>
+        `;
+        container.appendChild(playerItem);
     });
+    
+    document.getElementById('lobby-player-count').textContent = `현재 ${playerList.length}명`;
 }
 
 // 게임 상태 리스너

@@ -212,6 +212,23 @@
             font-size: 0.85rem;
         }
         
+        .remove-player-btn {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: 10px;
+        }
+        
+        .remove-player-btn:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+        
         .teacher-empty-state {
             text-align: center;
             padding: 30px;
@@ -441,27 +458,6 @@
             <p>로비에 있는 학생들을 자동으로 방에 배정하여 게임을 진행합니다.</p>
         </div>
         
-        <!-- 장소 관리 버튼 -->
-        <div class="teacher-section">
-            <a href="locations.html" class="btn btn-primary" style="display: inline-block; text-decoration: none;">
-                📍 장소 수정하기
-            </a>
-        </div>
-        
-        <!-- 장소 목록 미리보기 -->
-        <div class="teacher-section locations-section">
-            <h2>📋 등록된 장소 목록</h2>
-            <div id="teacher-locations-container" class="locations-grid">
-                <div class="teacher-empty-state">
-                    <div class="empty-icon">📍</div>
-                    <p>장소를 불러오는 중...</p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 메시지 -->
-        <div id="teacher-message" class="teacher-message"></div>
-        
         <!-- 교사 로그인 -->
         <div id="teacher-login-section" class="teacher-section">
             <h2>🔑 교사 인증</h2>
@@ -474,6 +470,13 @@
         <!-- 게임 대시보드 -->
         <div id="teacher-dashboard" class="teacher-section" style="display: none;">
             <h2>🎮 게임 대시보드</h2>
+            
+            <!-- 교사 코드 표시 -->
+            <div style="background: #fff3cd; border: 2px solid #e67e22; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center;">
+                <p style="font-weight: bold; color: #2c3e50; margin-bottom: 10px;">📢 학생들에게 알려주세요</p>
+                <p style="font-size: 0.9rem; color: #636e72; margin-bottom: 10px;">이 코드를 학생들에게 입력시켜주세요:</p>
+                <div id="teacher-code-display" style="background: white; padding: 10px 20px; border-radius: 6px; font-size: 1.2rem; font-weight: bold; color: #e67e22; letter-spacing: 2px; border: 2px dashed #e67e22;"></div>
+            </div>
             
             <div class="teacher-stats">
                 <div class="teacher-stat">
@@ -505,6 +508,11 @@
             
             <div id="teacher-lobby-section">
                 <h3>📋 로비 참가자 목록</h3>
+                <div style="margin-bottom: 15px;">
+                    <button class="btn btn-danger" onclick="removeAllPlayers()" id="remove-all-btn" disabled>
+                        🗑️ 전체 참가자 내보내기
+                    </button>
+                </div>
                 <div id="teacher-lobby-list" class="teacher-lobby-list">
                     <div class="teacher-empty-state">
                         <div class="empty-icon">👤</div>
@@ -595,30 +603,61 @@
             }
 
             teacherName = name;
-            teacherId = 'teacher_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-
-            // 교사 세션 생성
-            database.ref('teacher').set({
-                teacherId: teacherId,
-                teacherName: name,
-                startedAt: Date.now()
+            
+            // Firebase 참조
+            const database = window.database || firebase.database();
+            
+            // 기존 교사 세션 완전히 삭제 (중복 방지)
+            database.ref('teacher').once('value').then(snapshot => {
+                const existingTeacher = snapshot.val();
+                
+                if (existingTeacher && existingTeacher.teacherId) {
+                    const existingTeacherId = existingTeacher.teacherId;
+                    // 기존 교사 데이터를 모두 삭제
+                    const updates = {};
+                    updates['teacher'] = null;
+                    updates['lobby/' + existingTeacherId] = null;
+                    return database.ref().update(updates);
+                }
+            }).then(() => {
+                // 6자리 숫자 교사 코드 생성
+                teacherId = Math.floor(100000 + Math.random() * 900000).toString();
+                
+                // 교사 세션 생성
+                return database.ref('teacher').set({
+                    teacherId: teacherId,
+                    teacherName: name,
+                    startedAt: Date.now()
+                });
+            }).then(() => {
+                // 로비에 교사도 표시
+                return database.ref('lobby/' + teacherId).set({
+                    name: name + ' (교사)',
+                    joinedAt: Date.now(),
+                    isTeacher: true
+                });
+            }).then(() => {
+                // 브라우저가 닫힐 때 자동으로 데이터 정리
+                database.ref('lobby/' + teacherId).onDisconnect().remove();
+                database.ref('teacher').onDisconnect().remove();
+            }).then(() => {
+                document.getElementById('teacher-login-section').style.display = 'none';
+                document.getElementById('teacher-dashboard').style.display = 'block';
+                
+                // 교사 코드 표시
+                document.getElementById('teacher-code-display').textContent = teacherId;
+                
+                showMessage('세션이 시작되었습니다! 학생들이 로비에 입장할 때까지 기다려주세요.', 'success');
+            }).catch(error => {
+                console.error('교사 세션 시작 실패:', error);
+                showMessage('세션 시작에 실패했습니다.', 'error');
             });
-
-            // 로비에 교사도 표시
-            database.ref('lobby/' + teacherId).set({
-                name: name + ' (교사)',
-                joinedAt: Date.now(),
-                isTeacher: true
-            });
-
-            document.getElementById('teacher-login-section').style.display = 'none';
-            document.getElementById('teacher-dashboard').style.display = 'block';
-            showMessage('세션이 시작되었습니다! 학생들이 로비에 입장할 때까지 기다려주세요.', 'success');
         }
 
         // ==================== 로비 실시간 업데이트 ====================
         function setupLobbyListener() {
-            database.ref('lobby').on('value', snapshot => {
+            const database = window.database || firebase.database();
+            database.ref('lobby/' + teacherId).on('value', snapshot => {
                 const players = snapshot.val() || {};
                 const listEl = document.getElementById('teacher-lobby-list');
                 const startBtn = document.getElementById('teacher-start-btn');
@@ -652,9 +691,61 @@
                         <span class="player-emoji">👤</span>
                         <span class="player-name">${player.name}</span>
                         <span class="player-number">#${index + 1}</span>
+                        <button class="remove-player-btn" onclick="removePlayer('${id}', '${player.name}')">
+                            내보내기
+                        </button>
                     `;
                     listEl.appendChild(item);
                 });
+            });
+        }
+
+        // ==================== 학생 내보내기 ====================
+        function removePlayer(playerId, playerName) {
+            if (!confirm(`'${playerName}' 학생을 로비에서 내보내시겠습니까?\n\n학생은 로비로 돌아가게 됩니다.`)) {
+                return;
+            }
+            
+            const database = window.database || firebase.database();
+            database.ref('lobby/' + teacherId + '/' + playerId).remove()
+                .then(() => {
+                    showMessage(`'${playerName}' 학생을 내보냈습니다.`, 'success');
+                })
+                .catch(error => {
+                    console.error('학생 내보내기 실패:', error);
+                    showMessage('학생 내보내기에 실패했습니다.', 'error');
+                });
+        }
+
+        function removeAllPlayers() {
+            // Get current players from Firebase
+            const database = window.database || firebase.database();
+            database.ref('lobby/' + teacherId).once('value').then(snapshot => {
+                const players = snapshot.val() || {};
+                const playerList = Object.entries(players).filter(([id, p]) => !p.isTeacher);
+                
+                if (playerList.length === 0) {
+                    showMessage('내보낼 학생이 없습니다.', 'error');
+                    return;
+                }
+                
+                if (!confirm(`현재 로비에 있는 ${playerList.length}명의 모든 학생을 내보내시겠습니까?\n\n모든 학생이 로비로 돌아가게 됩니다.`)) {
+                    return;
+                }
+                
+                const lobbyRef = database.ref('lobby/' + teacherId);
+                const updates = {};
+                
+                playerList.forEach(([playerId, player]) => {
+                    updates[playerId] = null;
+                });
+                
+                return lobbyRef.update(updates);
+            }).then(() => {
+                showMessage('모든 학생을 내보냈습니다.', 'success');
+            }).catch(error => {
+                console.error('전체 내보내기 실패:', error);
+                showMessage('학생 내보내기에 실패했습니다.', 'error');
             });
         }
 
@@ -664,8 +755,11 @@
             startBtn.disabled = true;
             startBtn.textContent = '⏳ 게임 시작 중...';
 
-            // 로비 플레이어들 가져오기
-            database.ref('lobby').once('value').then(snapshot => {
+            // Firebase 참조
+            const database = window.database || firebase.database();
+
+            // 교사별 로비 플레이어들 가져오기
+            database.ref('lobby/' + teacherId).once('value').then(snapshot => {
                 const players = snapshot.val() || {};
                 const playerList = Object.entries(players).filter(([id, p]) => !p.isTeacher);
 
@@ -734,7 +828,7 @@
 
                         // 로비에서 제거
                         roomPlayers.forEach(([playerId]) => {
-                            database.ref('lobby/' + playerId).remove();
+                            database.ref('lobby/' + teacherId + '/' + playerId).remove();
                         });
                     });
 
@@ -751,6 +845,7 @@
 
         // ==================== 장소 목록 로드 ====================
         function loadTeacherLocations() {
+            const database = window.database || firebase.database();
             database.ref('locations').once('value').then(snapshot => {
                 const locations = snapshot.val() || {};
                 renderTeacherLocations(Object.values(locations));
@@ -787,11 +882,11 @@
 
         // ==================== 페이지 로드 ====================
         document.addEventListener('DOMContentLoaded', function() {
-            // 장소 목록 로드
-            loadTeacherLocations();
-
             // 로비 리스너 설정
             setupLobbyListener();
+            
+            // 장소 목록 로드
+            loadTeacherLocations();
         });
     </script>
 </body>
