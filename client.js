@@ -1,25 +1,5 @@
-// Socket.io 연결 (HTTPS/WSS 강제 설정)
-const socket = io({
-    transports: ['websocket', 'polling'],
-    secure: true,
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000
-});
-
-// 연결 상태 모니터링
-socket.on('connect', () => {
-    console.log('Socket 연결 성공:', socket.id);
-});
-
-socket.on('connect_error', (error) => {
-    console.error('Socket 연결 실패:', error);
-    showPopup('서버 연결에 실패했습니다. 네트워크를 확인해주세요.');
-});
-
-socket.on('disconnect', (reason) => {
-    console.log('Socket 연결 끊김:', reason);
-});
+// Firebase 초기화 (index.html에서 설정한 firebaseConfig 사용)
+const database = firebase.database();
 
 // 게임 상태
 let gameState = {
@@ -27,32 +7,45 @@ let gameState = {
     playerName: null,
     gameId: null,
     currentScreen: 'start',
-    role: null, // 'spy' or 'citizen'
+    role: null,
     location: null,
     hasWritten: false,
     gameTimeMinutes: 0,
     timeEndTime: null,
     timerInterval: null,
     descriptions: {},
-    locations: []
+    locations: [],
+    isTeacher: false
 };
 
+// Firebase 참조
+let lobbyRef = null;
+let gameRef = null;
+let locationsRef = null;
+
+// ==================== Firebase 초기화 ====================
+function initFirebase() {
+    // 로비 참조
+    lobbyRef = database.ref('lobby');
+    // 장소 참조
+    locationsRef = database.ref('locations');
+}
+
 // ==================== 장소 목록 로드 ====================
-async function loadLobbyLocations() {
-    try {
-        const response = await fetch('/api/locations');
-        const locations = await response.json();
+function loadLobbyLocations() {
+    locationsRef.once('value').then(snapshot => {
+        const locations = snapshot.val() || [];
         renderLobbyLocations(locations);
-    } catch (error) {
+    }).catch(error => {
         console.error('장소 목록 로드 실패:', error);
-    }
+    });
 }
 
 // 로비용 장소 목록 렌더링
 function renderLobbyLocations(locations) {
     const container = document.getElementById('lobby-locations-container');
     
-    if (locations.length === 0) {
+    if (!locations || Object.keys(locations).length === 0) {
         container.innerHTML = `
             <div class="empty-lobby-locations" style="grid-column: 1 / -1; text-align: center; color: #95a5a6; padding: 20px;">
                 등록된 장소가 없습니다.
@@ -61,7 +54,8 @@ function renderLobbyLocations(locations) {
         return;
     }
     
-    container.innerHTML = locations.map(location => `
+    const locationsList = Object.values(locations);
+    container.innerHTML = locationsList.map(location => `
         <div class="lobby-location-card" style="background: #f8f9fa; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
             ${location.image 
                 ? `<img src="${location.image}" alt="${location.name}" style="width: 100%; height: 80px; object-fit: cover; border-radius: 6px; margin-bottom: 5px;">`
@@ -87,7 +81,8 @@ function saveGameInfo() {
     if (gameState.gameId && gameState.playerName) {
         localStorage.setItem('spyGameInfo', JSON.stringify({
             gameId: gameState.gameId,
-            playerName: gameState.playerName
+            playerName: gameState.playerName,
+            isTeacher: gameState.isTeacher
         }));
     }
 }
@@ -118,29 +113,131 @@ function enterLobby() {
     }
     
     gameState.playerName = playerName;
-    socket.emit('joinLobby', playerName);
+    gameState.playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    
+    // Firebase에 플레이어 추가
+    lobbyRef.child(gameState.playerId).set({
+        name: playerName,
+        joinedAt: Date.now()
+    });
+    
+    // 로비 화면으로 이동
+    showScreen('lobby-screen');
     
     // 장소 목록 미리 로드
     loadLobbyLocations();
 }
 
-// ==================== 게임 시작 ====================
-function startGame() {
-    socket.emit('startGame');
+// ==================== 교사 세션 시작 ====================
+function startTeacherSession() {
+    const teacherName = document.getElementById('lobby-player-name').value.trim();
+    
+    if (!teacherName) {
+        showPopup('교사 이름을 입력해주세요!');
+        return;
+    }
+    
+    gameState.playerName = teacherName;
+    gameState.playerId = 'teacher_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    gameState.isTeacher = true;
+    
+    // 교사 세션 생성
+    database.ref('teacher').set({
+        teacherId: gameState.playerId,
+        teacherName: teacherName,
+        startedAt: Date.now()
+    });
+    
+    // 로비에 교사도 표시
+    lobbyRef.child(gameState.playerId).set({
+        name: teacherName + ' (교사)',
+        joinedAt: Date.now(),
+        isTeacher: true
+    });
 }
 
-// ==================== 역할 확인 후 다음으로 ====================
-function proceedToWrite() {
-    // 라이브 피드 초기화
-    const feed = document.getElementById('live-feed');
-    feed.innerHTML = '<div class="empty-feed" style="text-align:center; color:#95a5a6; padding:20px;">아직 제출된 설명이 없습니다. 친구들이 작성하면 여기에 채팅처럼 표시됩니다!</div>';
-    document.getElementById('write-status').textContent = '';
-    document.getElementById('submit-desc-btn').disabled = false;
-    showScreen('write-screen');
+// ==================== 게임 시작 (교사) ====================
+function startGame() {
+    if (!gameState.isTeacher) return;
+    
+    // 로비 플레이어들 가져오기
+    lobbyRef.once('value').then(snapshot => {
+        const players = snapshot.val() || {};
+        const playerList = Object.entries(players).filter(([id, p]) => !p.isTeacher);
+        
+        if (playerList.length < 2) {
+            showPopup('최소 2명의 플레이어가 필요합니다.');
+            return;
+        }
+        
+        // 방으로 분할 (최대 5명씩)
+        const MAX_PLAYERS_PER_ROOM = 5;
+        const rooms = [];
+        for (let i = 0; i < playerList.length; i += MAX_PLAYERS_PER_ROOM) {
+            rooms.push(playerList.slice(i, i + MAX_PLAYERS_PER_ROOM));
+        }
+        
+        // 장소 가져오기
+        return locationsRef.once('value').then(locSnapshot => {
+            const locations = locSnapshot.val() || {};
+            const locationsList = Object.values(locations);
+            
+            if (locationsList.length === 0) {
+                showPopup('등록된 장소가 없습니다.');
+                return;
+            }
+            
+            // 방 생성 및 게임 시작
+            rooms.forEach(roomPlayers => {
+                const gameId = Math.floor(100000 + Math.random() * 900000).toString();
+                
+                // 스파이 선택
+                const spyIndex = Math.floor(Math.random() * roomPlayers.length);
+                const spyId = roomPlayers[spyIndex][0];
+                
+                // 장소 할당
+                const shuffledLocations = [...locationsList].sort(() => Math.random() - 0.5);
+                const assignedLocation = shuffledLocations[0];
+                
+                // 게임 데이터 생성
+                const gameData = {
+                    status: 'playing',
+                    spyId: spyId,
+                    assignedLocation: assignedLocation,
+                    players: {},
+                    descriptions: {},
+                    votes: {},
+                    createdAt: Date.now()
+                };
+                
+                // 플레이어 데이터 추가
+                roomPlayers.forEach(([playerId, player]) => {
+                    gameData.players[playerId] = {
+                        id: playerId,
+                        name: player.name,
+                        isSpy: playerId === spyId,
+                        hasWritten: false
+                    };
+                });
+                
+                // Firebase에 게임 저장
+                database.ref('games/' + gameId).set(gameData);
+                
+                // 로비에서 제거
+                roomPlayers.forEach(([playerId]) => {
+                    lobbyRef.child(playerId).remove();
+                });
+            });
+            
+            showPopup('게임이 시작되었습니다!');
+        });
+    });
 }
 
 // ==================== 설명 작성 ====================
 function submitDescription() {
+    if (!gameState.gameId) return;
+    
     const description = document.getElementById('description-input').value.trim();
     
     if (!description) {
@@ -148,7 +245,14 @@ function submitDescription() {
         return;
     }
     
-    socket.emit('submitDescription', description);
+    // Firebase에 설명 저장
+    database.ref('games/' + gameState.gameId + '/descriptions/' + gameState.playerId).set({
+        text: description,
+        submittedAt: Date.now()
+    });
+    
+    // 작성 완료 표시
+    database.ref('games/' + gameState.gameId + '/players/' + gameState.playerId + '/hasWritten').set(true);
     
     // 내 설명을 채팅에 추가
     addLiveFeedMessage(gameState.playerName, description, true);
@@ -177,13 +281,27 @@ function addLiveFeedMessage(playerName, description, isMine) {
 
 // ==================== 투표 ====================
 function submitVote(votedPlayerId) {
-    socket.emit('submitVote', votedPlayerId);
+    if (!gameState.gameId) return;
+    
+    // Firebase에 투표 저장
+    database.ref('games/' + gameState.gameId + '/votes/' + gameState.playerId).set({
+        votedPlayerId: votedPlayerId,
+        votedAt: Date.now()
+    });
+    
+    showPopup('투표가 완료되었습니다! 다른 플레이어를 기다려주세요.');
+    showScreen('waiting-vote-screen');
 }
 
 // ==================== 로비로 돌아가기 ====================
 function returnToLobby() {
+    if (gameState.gameId) {
+        // 게임에서 제거
+        database.ref('games/' + gameState.gameId + '/players/' + gameState.playerId).remove();
+    }
+    
     clearGameInfo();
-    socket.emit('returnToLobby');
+    location.reload();
 }
 
 function goToStart() {
@@ -205,7 +323,6 @@ function startGameTimer() {
             if (remaining <= 0) {
                 clearInterval(gameState.timerInterval);
                 gameState.timerInterval = null;
-                // 시간이 끝났을 때는 이미 서버에서 처리됨
             } else {
                 const minutes = Math.floor(remaining / 60000);
                 const seconds = Math.floor((remaining % 60000) / 1000);
@@ -246,171 +363,144 @@ function closePopup() {
     document.getElementById('popup').style.display = 'none';
 }
 
-// ==================== Socket 이벤트 핸들러 ====================
-
-// 로비 입장됨
-socket.on('joinedLobby', (data) => {
-    gameState.playerId = data.playerId;
-    showScreen('lobby-screen');
-});
+// ==================== Firebase 실시간 리스너 ====================
 
 // 로비 업데이트 (참가자 목록)
-socket.on('lobbyUpdate', (players) => {
-    const container = document.getElementById('lobby-players-container');
-    container.innerHTML = '';
-    
-    if (players.length === 0) {
-        container.innerHTML = '<div class="empty-lobby">아직 참가자가 없습니다.</div>';
-        document.getElementById('lobby-player-count').textContent = '현재 0명';
-        return;
-    }
-    
-    players.forEach(player => {
-        const playerItem = document.createElement('div');
-        playerItem.className = 'player-item';
-        playerItem.innerHTML = `
-            <span class="player-emoji">👤</span>
-            <span>${player.name}</span>
-        `;
-        container.appendChild(playerItem);
+function setupLobbyListener() {
+    lobbyRef.on('value', snapshot => {
+        const players = snapshot.val() || {};
+        const container = document.getElementById('lobby-players-container');
+        container.innerHTML = '';
+        
+        const playerList = Object.entries(players).filter(([id, p]) => !p.isTeacher);
+        
+        if (playerList.length === 0) {
+            container.innerHTML = '<div class="empty-lobby">아직 참가자가 없습니다.</div>';
+            document.getElementById('lobby-player-count').textContent = '현재 0명';
+            return;
+        }
+        
+        playerList.forEach(([id, player]) => {
+            const playerItem = document.createElement('div');
+            playerItem.className = 'player-item';
+            playerItem.innerHTML = `
+                <span class="player-emoji">👤</span>
+                <span>${player.name}</span>
+            `;
+            container.appendChild(playerItem);
+        });
+        
+        document.getElementById('lobby-player-count').textContent = `현재 ${playerList.length}명`;
     });
-    
-    document.getElementById('lobby-player-count').textContent = `현재 ${players.length}명`;
-});
+}
 
-// 게임 시작됨
-socket.on('gameStarted', (data) => {
-    gameState.gameId = data.gameId;
-    gameState.gameTimeMinutes = data.gameTimeMinutes || 0;
+// 게임 상태 리스너
+function setupGameListener() {
+    if (!gameState.gameId) return;
     
-    if (data.gameTimeMinutes > 0) {
-        gameState.timeEndTime = Date.now() + (data.gameTimeMinutes * 60 * 1000);
-        startGameTimer();
-    }
+    gameRef = database.ref('games/' + gameState.gameId);
     
-    showPopup('게임이 시작되었습니다!');
-});
-
-// 스파이 역할
-socket.on('spyRole', (data) => {
-    gameState.role = 'spy';
-    gameState.gameId = data.gameId;
-    saveGameInfo();
-    
-    document.getElementById('role-emoji').textContent = '🕵️';
-    document.getElementById('role-title').textContent = '당신은 스파이입니다!';
-    document.getElementById('role-message').textContent = data.message;
-    document.getElementById('location-card').style.display = 'none';
-    showScreen('role-screen');
-});
-
-// 시민 역할
-socket.on('citizenRole', (data) => {
-    gameState.role = 'citizen';
-    gameState.location = data.location;
-    gameState.gameId = data.gameId;
-    saveGameInfo();
-    
-    document.getElementById('role-emoji').textContent = '🕵️‍♂️';
-    document.getElementById('role-title').textContent = '당신은 시민입니다!';
-    document.getElementById('role-message').textContent = data.message;
-    
-    document.getElementById('location-emoji').textContent = data.location.emoji;
-    document.getElementById('location-name').textContent = data.location.name;
-    document.getElementById('location-card').style.display = 'block';
-    
-    showScreen('role-screen');
-});
-
-// 설명 제출됨 - 실시간 리뷰 화면으로 이동
-socket.on('descriptionSubmitted', () => {
-    showPopup('설명이 제출되었습니다! 다른 플레이어의 설명이 실시간으로 표시됩니다.');
-    showScreen('review-screen');
-});
-
-// 설명 작성 진행 상황
-socket.on('waitingForDescriptions', (data) => {
-    document.getElementById('write-progress').textContent = 
-        `${data.writtenCount}/${data.totalCount} 작성 완료`;
-});
-
-// 실시간 설명 업데이트
-socket.on('newDescription', (data) => {
-    // 작성 화면의 라이브 피드에도 추가 (채팅 형식)
-    if (gameState.currentScreen === 'write-screen') {
-        addLiveFeedMessage(data.playerName, data.description, false);
-    }
-    
-    const descriptionsContainer = document.getElementById('descriptions-list');
-    
-    // "아직 제출된 설명이 없습니다" 메시지 제거
-    const emptyMsg = descriptionsContainer.querySelector('.empty-descriptions');
-    if (emptyMsg) emptyMsg.remove();
-    
-    // 이미 같은 플레이어의 카드가 있는지 확인
-    const existingCard = descriptionsContainer.querySelector(`[data-player-id="${data.playerId}"]`);
-    if (existingCard) {
-        existingCard.querySelector('.description-text').textContent = data.description;
-        return;
-    }
-    
-    // 새 카드 추가
-    const card = document.createElement('div');
-    card.className = 'description-card';
-    card.setAttribute('data-player-id', data.playerId);
-    card.innerHTML = `
-        <div class="description-header">
-            <span class="description-author">${data.playerName}</span>
-        </div>
-        <p class="description-text">${data.description}</p>
-    `;
-    descriptionsContainer.appendChild(card);
-    
-    // 자동 스크롤
-    descriptionsContainer.scrollTop = descriptionsContainer.scrollHeight;
-});
-
-// 모든 설명 제출 완료
-socket.on('allDescriptionsSubmitted', (descriptionsList) => {
-    const descriptionsContainer = document.getElementById('descriptions-list');
-    descriptionsContainer.innerHTML = '';
-    
-    descriptionsList.forEach(desc => {
-        const card = document.createElement('div');
-        card.className = 'description-card';
-        card.innerHTML = `
-            <div class="description-header">
-                <span class="description-author">${desc.playerName}</span>
-            </div>
-            <p class="description-text">${desc.description}</p>
-        `;
-        descriptionsContainer.appendChild(card);
+    // 게임 상태 변경 감지
+    gameRef.on('value', snapshot => {
+        const game = snapshot.val();
+        if (!game) return;
+        
+        // 내 플레이어 정보 확인
+        const myPlayer = game.players && game.players[gameState.playerId];
+        if (myPlayer) {
+            gameState.role = myPlayer.isSpy ? 'spy' : 'citizen';
+            gameState.hasWritten = myPlayer.hasWritten || false;
+            
+            // 역할 화면으로 이동 (아직 이동하지 않았다면)
+            if (gameState.currentScreen === 'start' && !sessionStorage.getItem('roleShown')) {
+                showRoleScreen(game, myPlayer);
+                sessionStorage.setItem('roleShown', 'true');
+            }
+        }
+        
+        // 설명 실시간 업데이트
+        if (game.descriptions) {
+            updateDescriptions(game.descriptions, game.players);
+        }
+        
+        // 투표 단계 감지
+        if (game.status === 'voting' && !sessionStorage.getItem('votingStarted')) {
+            showVotingPhase(game);
+            sessionStorage.setItem('votingStarted', 'true');
+        }
+        
+        // 게임 종료 감지
+        if (game.status === 'ended' && !sessionStorage.getItem('gameEnded')) {
+            showGameResult(game);
+            sessionStorage.setItem('gameEnded', 'true');
+        }
     });
-    
-    showScreen('review-screen');
-});
+}
 
-// 투표 단계 - 설명도 함께 전달됨
-socket.on('votingPhase', (data) => {
+// 역할 화면 표시
+function showRoleScreen(game, myPlayer) {
+    if (myPlayer.isSpy) {
+        gameState.role = 'spy';
+        document.getElementById('role-emoji').textContent = '🕵️';
+        document.getElementById('role-title').textContent = '당신은 스파이입니다!';
+        document.getElementById('role-message').textContent = '당신은 스파이입니다! 다른 플레이어들이 어떤 장소를 받았는지 추리해보세요.';
+        document.getElementById('location-card').style.display = 'none';
+    } else {
+        gameState.role = 'citizen';
+        gameState.location = game.assignedLocation;
+        document.getElementById('role-emoji').textContent = '🕵️‍♂️';
+        document.getElementById('role-title').textContent = '당신은 시민입니다!';
+        document.getElementById('role-message').textContent = `당신의 장소는 ${game.assignedLocation.emoji} ${game.assignedLocation.name}입니다. 이 장소에 대한 설명을 작성해주세요.`;
+        
+        document.getElementById('location-emoji').textContent = game.assignedLocation.emoji;
+        document.getElementById('location-name').textContent = game.assignedLocation.name;
+        document.getElementById('location-card').style.display = 'block';
+    }
+    
+    showScreen('role-screen');
+}
+
+// 설명 업데이트
+function updateDescriptions(descriptions, players) {
+    const allWritten = players && Object.values(players).every(p => p.hasWritten);
+    
+    if (allWritten && !sessionStorage.getItem('allWritten')) {
+        // 모든 설명 제출 완료 - 투표 단계로
+        sessionStorage.setItem('allWritten', 'true');
+        showVotingPhaseFromDescriptions(descriptions, players);
+    } else if (gameState.currentScreen === 'write-screen') {
+        // 실시간으로 설명 업데이트
+        Object.entries(descriptions).forEach(([playerId, desc]) => {
+            if (desc.text && !document.querySelector(`[data-player-id="${playerId}"]`)) {
+                const player = players[playerId];
+                if (player) {
+                    addLiveFeedMessage(player.name, desc.text, playerId === gameState.playerId);
+                }
+            }
+        });
+        
+        // 진행 상황 업데이트
+        const writtenCount = Object.keys(descriptions).length;
+        const totalCount = players ? Object.keys(players).length : 0;
+        document.getElementById('write-progress').textContent = `${writtenCount}/${totalCount} 작성 완료`;
+    }
+}
+
+// 투표 화면 표시
+function showVotingPhase(game) {
     const voteOptions = document.getElementById('vote-options');
     voteOptions.innerHTML = '';
     
-    // 설명이 있으면 저장
-    if (data.descriptions) {
-        gameState.descriptions = data.descriptions;
-    }
+    if (!game.players) return;
     
-    // 플레이어 이름과 설명을 함께 표시
-    data.players.forEach(player => {
+    Object.entries(game.players).forEach(([playerId, player]) => {
         const button = document.createElement('button');
         button.className = 'vote-option';
         
-        // 설명이 있으면 함께 표시
-        const description = data.descriptions && data.descriptions[player.id] 
-            ? data.descriptions[player.id] 
+        const description = game.descriptions && game.descriptions[playerId] 
+            ? game.descriptions[playerId].text 
             : '';
         
-        // 설명이 길면 줄여서 표시
         const shortDesc = description.length > 30 
             ? description.substring(0, 30) + '...' 
             : description;
@@ -419,27 +509,43 @@ socket.on('votingPhase', (data) => {
             <div class="vote-player-name">${player.name}</div>
             ${shortDesc ? `<div class="vote-player-desc">${shortDesc}</div>` : ''}
         `;
-        button.onclick = () => submitVote(player.id);
+        button.onclick = () => submitVote(playerId);
         voteOptions.appendChild(button);
     });
     
     showScreen('vote-screen');
-});
+}
 
-// 투표 제출됨
-socket.on('voteSubmitted', () => {
-    showPopup('투표가 완료되었습니다! 다른 플레이어를 기다려주세요.');
-    showScreen('waiting-vote-screen');
-});
+// 설명 기반 투표 화면
+function showVotingPhaseFromDescriptions(descriptions, players) {
+    const voteOptions = document.getElementById('vote-options');
+    voteOptions.innerHTML = '';
+    
+    Object.entries(players).forEach(([playerId, player]) => {
+        const button = document.createElement('button');
+        button.className = 'vote-option';
+        
+        const description = descriptions[playerId] 
+            ? descriptions[playerId].text 
+            : '';
+        
+        const shortDesc = description.length > 30 
+            ? description.substring(0, 30) + '...' 
+            : description;
+        
+        button.innerHTML = `
+            <div class="vote-player-name">${player.name}</div>
+            ${shortDesc ? `<div class="vote-player-desc">${shortDesc}</div>` : ''}
+        `;
+        button.onclick = () => submitVote(playerId);
+        voteOptions.appendChild(button);
+    });
+    
+    showScreen('vote-screen');
+}
 
-// 투표 진행 상황
-socket.on('waitingForVotes', (data) => {
-    document.getElementById('vote-progress').textContent = 
-        `${data.voteCount}/${data.totalCount} 투표 완료`;
-});
-
-// 게임 종료
-socket.on('gameEnded', (data) => {
+// 게임 결과 표시
+function showGameResult(game) {
     stopGameTimer();
     
     const resultTitle = document.getElementById('result-title');
@@ -447,7 +553,29 @@ socket.on('gameEnded', (data) => {
     const resultMessage = document.getElementById('result-message');
     const resultDetails = document.getElementById('result-details');
     
-    if (data.winningTeam === 'citizens') {
+    // 투표 결과 계산
+    const voteCount = {};
+    if (game.votes) {
+        Object.values(game.votes).forEach(vote => {
+            voteCount[vote.votedPlayerId] = (voteCount[vote.votedPlayerId] || 0) + 1;
+        });
+    }
+    
+    let maxVotes = 0;
+    let accusedPlayerId = null;
+    Object.entries(voteCount).forEach(([playerId, count]) => {
+        if (count > maxVotes) {
+            maxVotes = count;
+            accusedPlayerId = playerId;
+        }
+    });
+    
+    const spyPlayer = game.players && Object.values(game.players).find(p => p.isSpy);
+    const accusedPlayer = game.players && game.players[accusedPlayerId];
+    
+    const spyCaught = accusedPlayerId === game.spyId;
+    
+    if (spyCaught) {
         resultTitle.textContent = '시민 승리!';
         resultEmoji.textContent = '🎉';
         resultMessage.textContent = '스파이를 잡았습니다!';
@@ -458,182 +586,39 @@ socket.on('gameEnded', (data) => {
     }
     
     // 투표 결과 표시
-    let voteDetails = `스파이: ${data.spyName}\n`;
-    voteDetails += `지목당한 사람: ${data.accusedName}\n\n`;
+    let voteDetails = `스파이: ${spyPlayer ? spyPlayer.name : '?'}\n`;
+    voteDetails += `지목당한 사람: ${accusedPlayer ? accusedPlayer.name : '?'}\n\n`;
     voteDetails += '투표 결과:\n';
-    Object.entries(data.voteCount).forEach(([playerId, count]) => {
-        const player = data.players?.find(p => p.id === playerId);
-        if (player) {
-            voteDetails += `${player.name}: ${count}표\n`;
-        }
-    });
     
-    // 1등 추가
-    if (data.fastestPlayer) {
-        voteDetails += `\n🏆 1등: ${data.fastestPlayer.name} (가장 빨리 완료!)`;
+    if (game.players) {
+        Object.entries(game.players).forEach(([playerId, player]) => {
+            voteDetails += `${player.name}: ${voteCount[playerId] || 0}표\n`;
+        });
     }
     
     resultDetails.textContent = voteDetails;
     
-    // 축하 효과 추가
-    if (data.fastestPlayer) {
-        celebrateWinner();
-    }
-    
     showScreen('result-screen');
-});
-
-// 승리 축하 효과
-function celebrateWinner() {
-    const colors = ['🎉', '⭐', '🏆', '🎊', '✨', '🌟'];
-    const resultScreen = document.getElementById('result-screen');
-    
-    for (let i = 0; i < 50; i++) {
-        setTimeout(() => {
-            const confetti = document.createElement('div');
-            confetti.style.position = 'fixed';
-            confetti.style.left = Math.random() * 100 + 'vw';
-            confetti.style.top = '-50px';
-            confetti.style.fontSize = (Math.random() * 30 + 20) + 'px';
-            confetti.style.zIndex = '9999';
-            confetti.style.pointerEvents = 'none';
-            confetti.style.animation = `fall ${Math.random() * 3 + 2}s linear`;
-            confetti.textContent = colors[Math.floor(Math.random() * colors.length)];
-            
-            document.body.appendChild(confetti);
-            
-            setTimeout(() => {
-                confetti.remove();
-            }, 5000);
-        }, i * 100);
-    }
 }
-
-// 로비로 복귀됨
-socket.on('returnedToLobby', () => {
-    showScreen('lobby-screen');
-    // 장소 목록 다시 로드
-    loadLobbyLocations();
-    showPopup('로비로 돌아왔습니다! 새로운 게임을 기다려주세요.');
-});
-
-// 플레이어 퇴장
-socket.on('playerLeft', (data) => {
-    showPopup(`${data.playerName}님이 게임을 나갔습니다.`);
-});
-
-// 플레이어 연결 끊김 (재접속 가능)
-socket.on('playerDisconnected', (data) => {
-    showPopup(`${data.playerName}님이 연결을 끊었습니다. 5분 이내에 재접속하면 게임을 이어서 플레이할 수 있습니다.`);
-});
-
-// 플레이어 재접속
-socket.on('playerRejoined', (data) => {
-    showPopup(`${data.playerName}님이 게임에 다시 들어왔습니다.`);
-});
-
-// ==================== 재접속 처리 ====================
-
-// 재접속 성공
-socket.on('rejoinSuccess', (data) => {
-    gameState.gameId = data.gameId;
-    gameState.playerName = data.playerName;
-    gameState.role = data.role;
-    gameState.location = data.location;
-    gameState.hasWritten = data.hasWritten || false;
-    
-    // 게임 상태에 따라 적절한 화면으로 복구
-    if (data.gameStatus === 'playing') {
-        // 아직 설명을 작성하지 않았다면 역할 화면으로 이동
-        if (!data.hasWritten) {
-            if (data.role === 'spy') {
-                document.getElementById('role-emoji').textContent = '🕵️';
-                document.getElementById('role-title').textContent = '당신은 스파이입니다!';
-                document.getElementById('role-message').textContent = '당신은 스파이입니다! 다른 플레이어들이 어떤 장소를 받았는지 추리해보세요.';
-                document.getElementById('location-card').style.display = 'none';
-            } else {
-                document.getElementById('role-emoji').textContent = '🕵️‍♂️';
-                document.getElementById('role-title').textContent = '당신은 시민입니다!';
-                document.getElementById('role-message').textContent = `당신의 장소는 ${data.location.emoji} ${data.location.name}입니다. 이 장소에 대한 설명을 작성해주세요.`;
-                document.getElementById('location-emoji').textContent = data.location.emoji;
-                document.getElementById('location-name').textContent = data.location.name;
-                document.getElementById('location-card').style.display = 'block';
-            }
-            showScreen('role-screen');
-        } else {
-            // 이미 설명을 작성했다면 리뷰 화면으로 복구
-            const descriptionsContainer = document.getElementById('descriptions-list');
-            descriptionsContainer.innerHTML = '';
-            
-            // 기존 설명 복구
-            data.players.forEach(player => {
-                if (data.descriptions[player.id]) {
-                    const card = document.createElement('div');
-                    card.className = 'description-card';
-                    card.innerHTML = `
-                        <div class="description-header">
-                            <span class="description-author">${player.name}</span>
-                        </div>
-                        <p class="description-text">${data.descriptions[player.id]}</p>
-                    `;
-                    descriptionsContainer.appendChild(card);
-                }
-            });
-            
-            showScreen('review-screen');
-        }
-    } else if (data.gameStatus === 'voting') {
-        // 투표 단계라면 투표 화면으로
-        const voteOptions = document.getElementById('vote-options');
-        voteOptions.innerHTML = '';
-        
-        data.players.forEach(player => {
-            const button = document.createElement('button');
-            button.className = 'vote-option';
-            
-            // 설명이 있으면 함께 표시
-            const description = data.descriptions && data.descriptions[player.id] 
-                ? data.descriptions[player.id] 
-                : '';
-            
-            const shortDesc = description.length > 30 
-                ? description.substring(0, 30) + '...' 
-                : description;
-            
-            button.innerHTML = `
-                <div class="vote-player-name">${player.name}</div>
-                ${shortDesc ? `<div class="vote-player-desc">${shortDesc}</div>` : ''}
-            `;
-            button.onclick = () => submitVote(player.id);
-            voteOptions.appendChild(button);
-        });
-        
-        showScreen('vote-screen');
-    }
-    
-    showPopup('게임에 다시 연결되었습니다!');
-});
-
-// 재접속 실패
-socket.on('rejoinFailed', (data) => {
-    clearGameInfo();
-    showPopup(data.message + ' 로비 화면으로 이동합니다.');
-    showScreen('lobby-screen');
-});
 
 // ==================== 이벤트 리스너 ====================
 document.addEventListener('DOMContentLoaded', function() {
+    // Firebase 초기화
+    initFirebase();
+    
     // 페이지 로드 시 재접속 시도
     const savedGameInfo = loadGameInfo();
     if (savedGameInfo && savedGameInfo.gameId && savedGameInfo.playerName) {
-        // 소켓이 연결된 후 재접속 요청
-        socket.on('connect', function() {
-            socket.emit('rejoinGame', {
-                gameId: savedGameInfo.gameId,
-                playerName: savedGameInfo.playerName
-            });
-        });
+        gameState.gameId = savedGameInfo.gameId;
+        gameState.playerName = savedGameInfo.playerName;
+        gameState.isTeacher = savedGameInfo.isTeacher || false;
+        
+        // 게임 리스너 설정
+        setupGameListener();
     }
+    
+    // 로비 리스너 설정
+    setupLobbyListener();
     
     // 엔터키로 로비 입장
     document.getElementById('lobby-player-name').addEventListener('keypress', function(e) {

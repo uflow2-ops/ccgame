@@ -528,84 +528,105 @@
         </div>
     </div>
     
-    <script src="/socket.io/socket.io.js"></script>
+<!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
     <script>
-        // Socket.io 연결
-        const socket = io();
-        
+        // Firebase 초기화는 firebase-config.js에서 이미 완료됨
+        // database 변수를 사용할 수 있음
+
         let teacherName = '';
         let gameTimeMinutes = 0;
-        
+        let teacherId = null;
+
         // ==================== 메시지 표시 ====================
         function showMessage(message, type) {
             const msgEl = document.getElementById('teacher-message');
             msgEl.textContent = message;
             msgEl.className = 'teacher-message ' + type;
             msgEl.style.display = 'block';
-            
+
             setTimeout(() => {
                 msgEl.style.display = 'none';
             }, 5000);
         }
-        
+
         // ==================== 게임 시간 설정 ====================
         function setGameTime(minutes) {
             gameTimeMinutes = minutes;
-            
+
             document.querySelectorAll('.time-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
-            
+
             document.getElementById('custom-time-input').value = '';
-            
+
             document.getElementById('time-display').textContent = 
                 `설정된 시간: ${minutes}분`;
         }
-        
+
         function setCustomGameTime() {
             const customMinutes = parseInt(document.getElementById('custom-time-input').value);
-            
+
             if (isNaN(customMinutes) || customMinutes < 1 || customMinutes > 60) {
                 showMessage('1분에서 60분 사이의 시간을 입력해주세요.', 'error');
                 return;
             }
-            
+
             gameTimeMinutes = customMinutes;
-            
+
             document.querySelectorAll('.time-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            
+
             document.getElementById('time-display').textContent = 
                 `설정된 시간: ${customMinutes}분`;
         }
-        
+
         // ==================== 교사 세션 시작 ====================
         function startTeacherSession() {
             const name = document.getElementById('teacher-name-input').value.trim();
-            
+
             if (!name) {
                 showMessage('교사 이름을 입력해주세요.', 'error');
                 return;
             }
-            
+
             teacherName = name;
-            
-            socket.emit('teacherJoin', { teacherName: name });
-            
+            teacherId = 'teacher_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+
+            // 교사 세션 생성
+            database.ref('teacher').set({
+                teacherId: teacherId,
+                teacherName: name,
+                startedAt: Date.now()
+            });
+
+            // 로비에 교사도 표시
+            database.ref('lobby/' + teacherId).set({
+                name: name + ' (교사)',
+                joinedAt: Date.now(),
+                isTeacher: true
+            });
+
             document.getElementById('teacher-login-section').style.display = 'none';
             document.getElementById('teacher-dashboard').style.display = 'block';
             showMessage('세션이 시작되었습니다! 학생들이 로비에 입장할 때까지 기다려주세요.', 'success');
         }
-        
+
         // ==================== 로비 실시간 업데이트 ====================
         function setupLobbyListener() {
-            socket.on('lobbyUpdate', (players) => {
+            database.ref('lobby').on('value', snapshot => {
+                const players = snapshot.val() || {};
                 const listEl = document.getElementById('teacher-lobby-list');
                 const startBtn = document.getElementById('teacher-start-btn');
-                
-                if (players.length === 0) {
+
+                // 교사를 제외한 플레이어만 필터링
+                const playerList = Object.entries(players).filter(([id, p]) => !p.isTeacher);
+
+                if (playerList.length === 0) {
                     listEl.innerHTML = `
                         <div class="teacher-empty-state">
                             <div class="empty-icon">👤</div>
@@ -617,14 +638,14 @@
                     document.getElementById('teacher-rooms-count').textContent = 0;
                     return;
                 }
-                
-                document.getElementById('teacher-total-players').textContent = players.length;
-                const roomsNeeded = Math.ceil(players.length / 5);
+
+                document.getElementById('teacher-total-players').textContent = playerList.length;
+                const roomsNeeded = Math.ceil(playerList.length / 5);
                 document.getElementById('teacher-rooms-count').textContent = roomsNeeded;
-                startBtn.disabled = players.length < 2;
-                
+                startBtn.disabled = playerList.length < 2;
+
                 listEl.innerHTML = '';
-                players.forEach((player, index) => {
+                playerList.forEach(([id, player], index) => {
                     const item = document.createElement('div');
                     item.className = 'teacher-player-item';
                     item.innerHTML = `
@@ -636,39 +657,112 @@
                 });
             });
         }
-        
+
         // ==================== 게임 시작 ====================
         function startGame() {
             const startBtn = document.getElementById('teacher-start-btn');
             startBtn.disabled = true;
             startBtn.textContent = '⏳ 게임 시작 중...';
-            
-            socket.emit('startGame', { gameTimeMinutes: gameTimeMinutes });
-            
-            document.getElementById('teacher-game-status').style.display = 'block';
-            const progressEl = document.getElementById('teacher-room-progress');
-            progressEl.innerHTML = '<div class="room-progress-item"><span class="room-name">🎮 게임 진행 중...</span></div>';
-            
-            showMessage('🎮 게임이 시작되었습니다!', 'success');
-            startBtn.disabled = false;
-            startBtn.textContent = '🎯 게임 시작하기';
+
+            // 로비 플레이어들 가져오기
+            database.ref('lobby').once('value').then(snapshot => {
+                const players = snapshot.val() || {};
+                const playerList = Object.entries(players).filter(([id, p]) => !p.isTeacher);
+
+                if (playerList.length < 2) {
+                    showMessage('최소 2명의 플레이어가 필요합니다.', 'error');
+                    startBtn.disabled = false;
+                    startBtn.textContent = '🎯 게임 시작하기';
+                    return;
+                }
+
+                // 방으로 분할 (최대 5명씩)
+                const MAX_PLAYERS_PER_ROOM = 5;
+                const rooms = [];
+                for (let i = 0; i < playerList.length; i += MAX_PLAYERS_PER_ROOM) {
+                    rooms.push(playerList.slice(i, i + MAX_PLAYERS_PER_ROOM));
+                }
+
+                // 장소 가져오기
+                return database.ref('locations').once('value').then(locSnapshot => {
+                    const locations = locSnapshot.val() || {};
+                    const locationsList = Object.values(locations);
+
+                    if (locationsList.length === 0) {
+                        showMessage('등록된 장소가 없습니다.', 'error');
+                        startBtn.disabled = false;
+                        startBtn.textContent = '🎯 게임 시작하기';
+                        return;
+                    }
+
+                    // 방 생성 및 게임 시작
+                    rooms.forEach(roomPlayers => {
+                        const gameId = Math.floor(100000 + Math.random() * 900000).toString();
+
+                        // 스파이 선택
+                        const spyIndex = Math.floor(Math.random() * roomPlayers.length);
+                        const spyId = roomPlayers[spyIndex][0];
+
+                        // 장소 할당
+                        const shuffledLocations = [...locationsList].sort(() => Math.random() - 0.5);
+                        const assignedLocation = shuffledLocations[0];
+
+                        // 게임 데이터 생성
+                        const gameData = {
+                            status: 'playing',
+                            spyId: spyId,
+                            assignedLocation: assignedLocation,
+                            players: {},
+                            descriptions: {},
+                            votes: {},
+                            gameTimeMinutes: gameTimeMinutes,
+                            createdAt: Date.now()
+                        };
+
+                        // 플레이어 데이터 추가
+                        roomPlayers.forEach(([playerId, player]) => {
+                            gameData.players[playerId] = {
+                                id: playerId,
+                                name: player.name,
+                                isSpy: playerId === spyId,
+                                hasWritten: false
+                            };
+                        });
+
+                        // Firebase에 게임 저장
+                        database.ref('games/' + gameId).set(gameData);
+
+                        // 로비에서 제거
+                        roomPlayers.forEach(([playerId]) => {
+                            database.ref('lobby/' + playerId).remove();
+                        });
+                    });
+
+                    document.getElementById('teacher-game-status').style.display = 'block';
+                    const progressEl = document.getElementById('teacher-room-progress');
+                    progressEl.innerHTML = '<div class="room-progress-item"><span class="room-name">🎮 게임 진행 중...</span></div>';
+
+                    showMessage('🎮 게임이 시작되었습니다!', 'success');
+                    startBtn.disabled = false;
+                    startBtn.textContent = '🎯 게임 시작하기';
+                });
+            });
         }
-        
+
         // ==================== 장소 목록 로드 ====================
-        async function loadTeacherLocations() {
-            try {
-                const response = await fetch('/api/locations');
-                const locations = await response.json();
-                renderTeacherLocations(locations);
-            } catch (error) {
+        function loadTeacherLocations() {
+            database.ref('locations').once('value').then(snapshot => {
+                const locations = snapshot.val() || {};
+                renderTeacherLocations(Object.values(locations));
+            }).catch(error => {
                 console.error('장소 목록 로드 실패:', error);
-            }
+            });
         }
-        
+
         // 장소 목록 렌더링
         function renderTeacherLocations(locations) {
             const container = document.getElementById('teacher-locations-container');
-            
+
             if (locations.length === 0) {
                 container.innerHTML = `
                     <div class="teacher-empty-state">
@@ -678,7 +772,7 @@
                 `;
                 return;
             }
-            
+
             container.innerHTML = locations.map(location => `
                 <div class="location-card">
                     ${location.image 
@@ -690,12 +784,12 @@
                 </div>
             `).join('');
         }
-        
+
         // ==================== 페이지 로드 ====================
         document.addEventListener('DOMContentLoaded', function() {
             // 장소 목록 로드
             loadTeacherLocations();
-            
+
             // 로비 리스너 설정
             setupLobbyListener();
         });
