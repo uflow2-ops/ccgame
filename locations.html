@@ -79,6 +79,36 @@
             display: block;
         }
         
+        .upload-progress {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 5px;
+            color: #1976d2;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .upload-progress.active {
+            display: block;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #1976d2;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
         .button-group {
             display: flex;
             gap: 10px;
@@ -297,6 +327,9 @@
                     <label for="location-image">장소 사진</label>
                     <input type="file" id="location-image" accept="image/*">
                     <img id="image-preview" class="image-preview" alt="미리보기">
+                    <div id="upload-progress" class="upload-progress">
+                        <span class="spinner"></span>사진 업로드 중... 잠시만 기다려주세요.
+                    </div>
                 </div>
                 
                 <div class="button-group">
@@ -399,57 +432,77 @@
             }
         }
         
-        // 폼 제출 처리
-        async function handleFormSubmit(event) {
-            event.preventDefault();
-            
-            const name = document.getElementById('location-name').value.trim();
-            const emoji = document.getElementById('location-emoji').value.trim();
-            const description = document.getElementById('location-description').value.trim();
-            const imageFile = document.getElementById('location-image').files[0];
-            
-            if (!name || !emoji || !description) {
-                showMessage('장소 이름, 이모지, 설명을 입력해주세요.', 'error');
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('name', name);
-            formData.append('emoji', emoji);
-            formData.append('description', description);
-            if (imageFile) {
-                formData.append('image', imageFile);
-            }
-            
-            try {
-                let response;
-                if (editingId !== null) {
-                    // 수정
-                    response = await fetch(`/api/locations/${editingId}`, {
-                        method: 'PUT',
-                        body: formData
-                    });
-                } else {
-                    // 추가
-                    response = await fetch('/api/locations', {
-                        method: 'POST',
-                        body: formData
-                    });
-                }
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showMessage(result.message, 'success');
-                    resetForm();
-                    await loadLocations();
-                } else {
-                    showMessage(result.error || '오류가 발생했습니다.', 'error');
-                }
-            } catch (error) {
-                showMessage('서버와 통신 중 오류가 발생했습니다.', 'error');
-            }
-        }
+                 // 폼 제출 처리
+                 async function handleFormSubmit(event) {
+                     event.preventDefault();
+                     
+                     const name = document.getElementById('location-name').value.trim();
+                     const emoji = document.getElementById('location-emoji').value.trim();
+                     const description = document.getElementById('location-description').value.trim();
+                     const imageFile = document.getElementById('location-image').files[0];
+                     
+                     if (!name || !emoji || !description) {
+                         showMessage('장소 이름, 이모지, 설명을 입력해주세요.', 'error');
+                         return;
+                     }
+                     
+                     const formData = new FormData();
+                     formData.append('name', name);
+                     formData.append('emoji', emoji);
+                     formData.append('description', description);
+                     if (imageFile) {
+                         formData.append('image', imageFile);
+                     }
+                     
+                     // 업로드 진행 중 표시
+                     const progressEl = document.getElementById('upload-progress');
+                     const submitBtn = document.getElementById('submit-btn');
+                     const hasImage = !!imageFile;
+                     
+                     if (hasImage) {
+                         progressEl.classList.add('active');
+                         submitBtn.disabled = true;
+                         submitBtn.textContent = '업로드 중...';
+                     }
+                     
+                     try {
+                         let response;
+                         if (editingId !== null) {
+                             // 수정
+                             response = await fetch(`/api/locations/${editingId}`, {
+                                 method: 'PUT',
+                                 body: formData
+                             });
+                         } else {
+                             // 추가
+                             response = await fetch('/api/locations', {
+                                 method: 'POST',
+                                 body: formData
+                             });
+                         }
+                         
+                         const result = await response.json();
+                         
+                         if (response.ok) {
+                             showMessage(result.message, 'success');
+                             resetForm();
+                             await loadLocations();
+                             // teacher.html로 돌아왔을 때 새로고침 플래그 설정
+                             sessionStorage.setItem('locationsUpdated', 'true');
+                         } else {
+                             showMessage(result.error || '오류가 발생했습니다.', 'error');
+                         }
+                     } catch (error) {
+                         showMessage('서버와 통신 중 오류가 발생했습니다.', 'error');
+                     } finally {
+                         // 업로드 진행 중 숨기기
+                         if (hasImage) {
+                             progressEl.classList.remove('active');
+                             submitBtn.disabled = false;
+                             submitBtn.textContent = editingId !== null ? '수정하기' : '장소 추가';
+                         }
+                     }
+                 }
         
         // 장소 수정
         async function editLocation(id) {
@@ -496,6 +549,8 @@
                 if (response.ok) {
                     showMessage(result.message, 'success');
                     await loadLocations();
+                    // teacher.html로 돌아왔을 때 새로고침 플래그 설정
+                    sessionStorage.setItem('locationsUpdated', 'true');
                 } else {
                     showMessage(result.error || '삭제 중 오류가 발생했습니다.', 'error');
                 }
