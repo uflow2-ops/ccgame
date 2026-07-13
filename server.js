@@ -829,7 +829,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = process.env.PORT || 80;
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`춘천 스파이 게임 서버가 포트 ${PORT}에서 실행 중입니다.`);
 });
