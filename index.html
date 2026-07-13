@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>춘천 스파이 게임</title>
     <link rel="stylesheet" href="styles.css">
+</head>
 <body>
     <!-- 시작 화면 (이름 입력) -->
     <div id="start-screen" class="screen active">
@@ -28,32 +29,32 @@
         </div>
     </div>
 
-        <!-- 로비 화면 -->
-        <div id="lobby-screen" class="screen">
-            <div class="lobby-content">
-                <h2 class="lobby-title">🎪 전체 대기실</h2>
-                <p class="lobby-subtitle">교사가 게임을 시작할 때까지 기다려주세요!</p>
-                
-                <div class="lobby-players-section">
-                    <h3>📋 참가자 목록</h3>
-                    <p id="lobby-player-count" class="lobby-player-count">현재 0명</p>
-                    <div id="lobby-players-container" class="players-container">
-                        <div class="empty-lobby">아직 참가자가 없습니다.</div>
-                    </div>
+    <!-- 로비 화면 -->
+    <div id="lobby-screen" class="screen">
+        <div class="lobby-content">
+            <h2 class="lobby-title">🎪 전체 대기실</h2>
+            <p class="lobby-subtitle">교사가 게임을 시작할 때까지 기다려주세요!</p>
+            
+            <div class="lobby-players-section">
+                <h3>📋 참가자 목록</h3>
+                <p id="lobby-player-count" class="lobby-player-count">현재 0명</p>
+                <div id="lobby-players-container" class="players-container">
+                    <div class="empty-lobby">아직 참가자가 없습니다.</div>
                 </div>
-                
-                <!-- 장소 학습 섹션 -->
-                <div class="locations-study-section" style="margin-top: 30px;">
-                    <h3>📚 춘천 장소 학습</h3>
-                    <p style="color: #636e72; font-size: 0.9rem; margin-bottom: 15px;">다음은 춘천의 주요 장소들입니다. 미리 살펴보세요!</p>
-                    <div id="lobby-locations-container" class="locations-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto;">
-                        <div class="empty-lobby-locations" style="grid-column: 1 / -1; text-align: center; color: #95a5a6; padding: 20px;">
-                            장소를 불러오는 중...
-                        </div>
+            </div>
+            
+            <!-- 장소 학습 섹션 -->
+            <div class="locations-study-section" style="margin-top: 30px;">
+                <h3>📚 춘천 장소 학습</h3>
+                <p style="color: #636e72; font-size: 0.9rem; margin-bottom: 15px;">다음은 춘천의 주요 장소들입니다. 미리 살펴보세요!</p>
+                <div id="lobby-locations-container" class="locations-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto;">
+                    <div class="empty-lobby-locations" style="grid-column: 1 / -1; text-align: center; color: #95a5a6; padding: 20px;">
+                        장소를 불러오는 중...
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
     <!-- 역할 표시 화면 -->
     <div id="role-screen" class="screen">
@@ -79,7 +80,7 @@
             <div id="live-feed" class="live-feed"></div>
             <p id="write-status" class="write-status"></p>
             <div class="write-input-area">
-                <textarea id="description-input" placeholder="예: 이곳은 강 위를 걸을 수 있는 특별한 곳이에요. 아름다운 경치를 감상할 수 있죠." class="description-textarea"></textarea>
+                <textarea id="description-input" placeholder="예: 이곳은 강 위를 걸를 수 있는 특별한 곳이에요. 아름다운 경치를 감상할 수 있죠." class="description-textarea"></textarea>
                 <button class="big-button submit-button" id="submit-desc-btn" onclick="submitDescription()">제출하기</button>
             </div>
         </div>
@@ -151,23 +152,9 @@
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        // Socket.io 로딩 실패 시 폴백
-        setTimeout(function() {
-            if (typeof io === 'undefined') {
-                console.error('Socket.io 로딩 실패, CDN 폴백 시도');
-                var script = document.createElement('script');
-                script.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
-                script.onload = function() {
-                    console.log('CDN Socket.io 로드 성공');
-                };
-                script.onerror = function() {
-                    alert('서버 연결에 실패했습니다. 네트워크 연결을 확인해주세요.');
-                };
-                document.head.appendChild(script);
-            }
-        }, 3000);
-    </script>
-    <script src="client.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <script src="client-firebase.js"></script>
+</body>
 </html>

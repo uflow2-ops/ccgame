@@ -15,102 +15,84 @@
    - 스파이를 잡으면 시민 승리! 🎉
    - 스파이를 못 찾으면 스파이 승리! 🕵️
 
-## 📸 사진/장소 데이터 영구 저장 (중요)
+## 🚀 Firebase 배포 방법 (추천 ⭐)
 
-이 게임은 장소 사진과 장소 목록을 서버에 저장합니다. **Render 무료 플랜은 재배포(또는 인스턴스 재시작) 시 파일시스템이 초기화**되므로, 설정 없이 그대로 배포하면 올린 사진과 추가한 장소가 사라집니다.
+### 1. Firebase 프로젝트 생성
+1. https://console.firebase.google.com/ 에서 프로젝트 생성
+2. 프로젝트 ID를 기록해두세요 (예: `chuncheon-spy-game`)
 
-이를 해결하려면 **Cloudinary**(무료 외부 이미지 호스팅)를 연동하세요. 연동 시:
-- 업로드한 사진 → Cloudinary에 저장되어 **재배포 후에도 유지**
-- 장소 목록 데이터 → Cloudinary raw 파일로 백업되어 **재배포 후에도 유지**
+### 2. Firebase CLI 설치 및 로그인
+```bash
+npm install -g firebase-tools
+firebase login
+```
 
-### Cloudinary 설정 방법
+### 3. 프로젝트 설정
+`.firebaserc` 파일에 프로젝트 ID 입력:
+```json
+{
+  "projects": {
+    "default": "YOUR_FIREBASE_PROJECT_ID"
+  }
+}
+```
+
+### 4. Realtime Database 활성화
+1. Firebase Console → Build → Realtime Database
+2. 데이터베이스 생성 (테스트 모드 권장)
+3. 규칙 설정:
+```json
+{
+  "rules": {
+    "locations": {
+      ".read": true,
+      ".write": true
+    },
+    "lobby": {
+      ".read": true,
+      ".write": true
+    },
+    "games": {
+      ".read": true,
+      ".write": true
+    },
+    "teacher": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
+```
+
+### 5. Cloudinary 설정 (선택사항 - 이미지 영구 저장)
 1. https://console.cloudinary.com/ 에서 무료 가입
-2. Dashboard에서 `Cloud Name`, `API Key`, `API Secret` 확인
-3. 환경변수 설정:
-   - **로컬**: `.env.example`을 `.env`로 복사 후 값 입력
-   - **Render**: Dashboard → Environment → `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` 추가
-4. 서버 재시작
+2. Firebase Console → Functions → 환경 변수 설정:
+   - `CLOUDINARY_CLOUD_NAME`
+   - `CLOUDINARY_API_KEY`
+   - `CLOUDINARY_API_SECRET`
 
-> 환경변수를 설정하지 않으면 기존처럼 로컬 `uploads/` 폴더에 저장되며, 콘솔에 경고가 표시됩니다(재배포 시 사라짐).
-
-## 🚀 배포 방법 (무료 호스팅)
-
-### ⚠️ 중요: GitHub Pages는 사용 불가
-이 게임은 **Node.js 서버와 Socket.io**가 필요하므로 GitHub Pages에 배포할 수 없습니다.
-- GitHub Pages는 정적 파일(HTML, CSS, 이미지)만 호스팅 가능
-- 서버 사이드 코드와 실시간 통신이 필요한 이 게임은 Node.js 호스팅 서비스 필요
-
-### 방법 1: Render.com 사용 (추천 ⭐)
-
-1. **GitHub에 코드 업로드**
-   ```bash
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/사용자명/저장소명.git
-   git push -u origin main
-   ```
-
-2. **Render.com에서 배포**
-   - https://render.com 회원가입 (GitHub 계정으로 로그인 가능)
-   - "New +" → "Web Service" 선택
-   - GitHub 저장소 연결
-   - 설정:
-     - **Name**: 원하는 서비스 이름 (예: chuncheon-spy-game)
-     - **Environment**: Node
-     - **Build Command**: `npm install`
-     - **Start Command**: `node server.js`
-     - **Plan**: Free (무료)
-   - "Create Web Service" 클릭
-
-3. **배포 완료 후**
-   - Render가 제공하는 URL로 접속 (예: https://chuncheon-spy-game.onrender.com)
-   - 이 URL을 학생들에게 공유하면 됩니다!
-
-### 방법 2: Railway.app 사용
-
-1. https://railway.app 회원가입
-2. "New Project" → "Deploy from GitHub repo"
-3. 저장소 선택
-4. 자동 배포 완료!
-
-### 방법 3: Fly.io 사용
-
+### 6. 배포
 ```bash
-# Fly CLI 설치 후
-fly launch
-fly deploy
+# Functions 배포
+firebase deploy --only functions
+
+# Hosting 배포
+firebase deploy --only hosting
 ```
 
-## 💻 로컬에서 실행하기
-
-### 필요 조건
-- Node.js (v14 이상)
-
-### 설치 및 실행
-
-```bash
-# 1. 의존성 설치
-npm install
-
-# 2. 서버 실행
-node server.js
-
-# 3. 브라우저에서 접속
-# 로컬: http://localhost:3000
-# 같은 네트워크: http://192.168.0.152:3000
+### 7. Firebase 구성 입력
+`index.html`, `teacher.html`, `locations.html`, `client-firebase.js` 파일에서 Firebase 구성을 입력하세요:
+```javascript
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
 ```
-
-## 🎯 게임 플레이 방법
-
-### 호스트 (게임 만들기)
-1. 이름 입력 후 "새 게임 만들기" 클릭
-2. 게임 코드를 친구들에게 공유
-3. 최소 2명이 모이면 "게임 시작하기" 클릭
-
-### 플레이어 (게임 참가)
-1. 이름 입력 후 "게임 참가하기" 클릭
-2. 게임 코드 입력
-3. 호스트가 게임을 시작하면 자동으로 시작
 
 ## 📱 지원 기기
 - 태블릿 (추천)
@@ -118,9 +100,10 @@ node server.js
 - PC (데스크톱/노트북)
 
 ## 🛠️ 기술 스택
-- **Backend**: Node.js, Express, Socket.io
+- **Backend**: Firebase Functions, Firebase Realtime Database
 - **Frontend**: HTML, CSS, JavaScript (Vanilla)
-- **실시간 통신**: Socket.io
+- **실시간 통신**: Firebase Realtime Database
+- **이미지 저장**: Cloudinary (선택사항)
 
 ## 📝 주요 기능
 - ✅ 실시간 멀티플레이어

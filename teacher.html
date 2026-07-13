@@ -527,13 +527,28 @@
             </div>
         </div>
     </div>
-
-    <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
     <script>
-        const socket = io();
+        // Firebase 구성
+        const firebaseConfig = {
+            apiKey: "AIzaSyDC5B15uSbN28iHQ3i1H2yjZ0rE90f8obY",
+            authDomain: "ccgame-1c18c.firebaseapp.com",
+            databaseURL: "https://ccgame-1c18c-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "ccgame-1c18c",
+            storageBucket: "ccgame-1c18c.firebasestorage.app",
+            messagingSenderId: "94656061801",
+            appId: "1:94656061801:web:ca15e70644bc3c8a529df8"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
         let teacherName = '';
         let isSessionActive = false;
-        let gameTimeMinutes = 0; // 0 means no time limit (all descriptions submitted)
+        let gameTimeMinutes = 0;
         
         // ==================== 로컬스토리지 관리 ====================
         function saveTeacherInfo() {
@@ -576,16 +591,13 @@
         function setGameTime(minutes) {
             gameTimeMinutes = minutes;
             
-            // 버튼 활성화 상태 업데이트
             document.querySelectorAll('.time-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
             
-            // 직접 입력 필드 초기화
             document.getElementById('custom-time-input').value = '';
             
-            // 표시 업데이트
             document.getElementById('time-display').textContent = 
                 `설정된 시간: ${minutes}분`;
         }
@@ -600,12 +612,10 @@
             
             gameTimeMinutes = customMinutes;
             
-            // 버튼 활성화 상태 업데이트
             document.querySelectorAll('.time-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             
-            // 표시 업데이트
             document.getElementById('time-display').textContent = 
                 `설정된 시간: ${customMinutes}분`;
         }
@@ -621,170 +631,176 @@
             
             teacherName = name;
             saveTeacherInfo();
-            socket.emit('teacherStartSession', name);
-        }
-        
-        // 세션 시작됨
-        socket.on('sessionStarted', (data) => {
-            isSessionActive = true;
+            
+            // Firebase RTDB에 교사 세션 저장
+            database.ref('teacher/session').set({
+                teacherId: 'teacher_' + Date.now(),
+                teacherName: teacherName,
+                startedAt: Date.now()
+            });
+            
             document.getElementById('teacher-login-section').style.display = 'none';
             document.getElementById('teacher-dashboard').style.display = 'block';
             showMessage('세션이 시작되었습니다! 학생들이 로비에 입장할 때까지 기다려주세요.', 'success');
-        });
+        }
         
-        // ==================== 로비 업데이트 ====================
-        socket.on('lobbyUpdate', (players) => {
-            const listEl = document.getElementById('teacher-lobby-list');
-            const startBtn = document.getElementById('teacher-start-btn');
-            
-            document.getElementById('teacher-total-players').textContent = players.length;
-            
-            // 몇 개의 방이 생성될지 계산 (5명당 1개 방)
-            const roomsNeeded = Math.ceil(players.length / 5);
-            document.getElementById('teacher-rooms-count').textContent = roomsNeeded;
-            
-            // 시작 버튼 상태
-            startBtn.disabled = players.length < 2;
-            
-            if (players.length === 0) {
-                listEl.innerHTML = `
-                    <div class="teacher-empty-state">
-                        <div class="empty-icon">👤</div>
-                        <p>아직 참가자가 없습니다.<br>학생들이 로비에 입장할 때까지 기다려주세요.</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            listEl.innerHTML = '';
-            players.forEach((player, index) => {
-                const item = document.createElement('div');
-                item.className = 'teacher-player-item';
-                item.innerHTML = `
-                    <span class="player-emoji">👤</span>
-                    <span class="player-name">${player.name}</span>
-                    <span class="player-number">#${index + 1}</span>
-                `;
-                listEl.appendChild(item);
+        // ==================== 로비 실시간 업데이트 ====================
+        function setupLobbyListener() {
+            database.ref('lobby/players').on('value', (snapshot) => {
+                const listEl = document.getElementById('teacher-lobby-list');
+                const startBtn = document.getElementById('teacher-start-btn');
+                
+                if (snapshot.exists()) {
+                    const players = Object.values(snapshot.val());
+                    document.getElementById('teacher-total-players').textContent = players.length;
+                    
+                    const roomsNeeded = Math.ceil(players.length / 5);
+                    document.getElementById('teacher-rooms-count').textContent = roomsNeeded;
+                    
+                    startBtn.disabled = players.length < 2;
+                    
+                    if (players.length === 0) {
+                        listEl.innerHTML = `
+                            <div class="teacher-empty-state">
+                                <div class="empty-icon">👤</div>
+                                <p>아직 참가자가 없습니다.<br>학생들이 로비에 입장할 때까지 기다려주세요.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    listEl.innerHTML = '';
+                    players.forEach((player, index) => {
+                        const item = document.createElement('div');
+                        item.className = 'teacher-player-item';
+                        item.innerHTML = `
+                            <span class="player-emoji">👤</span>
+                            <span class="player-name">${player.name}</span>
+                            <span class="player-number">#${index + 1}</span>
+                        `;
+                        listEl.appendChild(item);
+                    });
+                } else {
+                    document.getElementById('teacher-total-players').textContent = 0;
+                    document.getElementById('teacher-rooms-count').textContent = 0;
+                    startBtn.disabled = true;
+                    listEl.innerHTML = `
+                        <div class="teacher-empty-state">
+                            <div class="empty-icon">👤</div>
+                            <p>아직 참가자가 없습니다.<br>학생들이 로비에 입장할 때까지 기다려주세요.</p>
+                        </div>
+                    `;
+                }
             });
-        });
+        }
         
         // ==================== 게임 시작 ====================
         function startGame() {
-            if (!isSessionActive) return;
-            
             const startBtn = document.getElementById('teacher-start-btn');
             startBtn.disabled = true;
             startBtn.textContent = '⏳ 게임 시작 중...';
             
-            socket.emit('teacherStartGame', { gameTimeMinutes: gameTimeMinutes });
-        }
-        
-        // 게임 시작됨 (교사용)
-        socket.on('gamesStarted', (data) => {
-            const startBtn = document.getElementById('teacher-start-btn');
-            startBtn.disabled = false;
-            startBtn.textContent = '🎯 게임 시작하기';
-            
-            document.getElementById('teacher-game-status').style.display = 'block';
-            
-            const progressEl = document.getElementById('teacher-room-progress');
-            progressEl.innerHTML = '';
-            
-            data.gameIds.forEach((gameId, index) => {
-                const item = document.createElement('div');
-                item.className = 'room-progress-item';
-                item.innerHTML = `
-                    <span class="room-name">📦 ${index + 1}번 방</span>
-                    <span class="room-status">🎮 게임 진행 중...</span>
-                `;
-                progressEl.appendChild(item);
-            });
-            
-            showMessage(`🎮 게임이 시작되었습니다! (${data.roomCount}개 방)`, 'success');
-        });
-        
-        // 게임 종료됨 (교사용)
-        socket.on('gameEnded', () => {
-            // 로비 목록 갱신
-            showMessage('게임이 종료되었습니다! "로비로 돌아가기"를 통해 학생들이 로비로 복귀합니다.', 'info');
-        });
-        
-        // 에러
-        socket.on('error', (message) => {
-            showMessage(message, 'error');
-            const startBtn = document.getElementById('teacher-start-btn');
-            startBtn.disabled = false;
-            startBtn.textContent = '🎯 게임 시작하기';
-        });
-        
-        // ==================== 교사 재접속 처리 ====================
-        socket.on('rejoinTeacherSuccess', (data) => {
-            isSessionActive = true;
-            document.getElementById('teacher-login-section').style.display = 'none';
-            document.getElementById('teacher-dashboard').style.display = 'block';
-            
-            // 로비 참가자 복구
-            const listEl = document.getElementById('teacher-lobby-list');
-            const startBtn = document.getElementById('teacher-start-btn');
-            
-            document.getElementById('teacher-total-players').textContent = data.lobbyPlayers.length;
-            const roomsNeeded = Math.ceil(data.lobbyPlayers.length / 5);
-            document.getElementById('teacher-rooms-count').textContent = roomsNeeded;
-            startBtn.disabled = data.lobbyPlayers.length < 2;
-            
-            if (data.lobbyPlayers.length === 0) {
-                listEl.innerHTML = `
-                    <div class="teacher-empty-state">
-                        <div class="empty-icon">👤</div>
-                        <p>아직 참가자가 없습니다.<br>학생들이 로비에 입장할 때까지 기다려주세요.</p>
-                    </div>
-                `;
-            } else {
-                listEl.innerHTML = '';
-                data.lobbyPlayers.forEach((player, index) => {
-                    const item = document.createElement('div');
-                    item.className = 'teacher-player-item';
-                    item.innerHTML = `
-                        <span class="player-emoji">👤</span>
-                        <span class="player-name">${player.name}</span>
-                        <span class="player-number">#${index + 1}</span>
-                    `;
-                    listEl.appendChild(item);
-                });
-            }
-            
-            // 게임 상태 복구
-            if (data.games && data.games.length > 0) {
-                document.getElementById('teacher-game-status').style.display = 'block';
-                const progressEl = document.getElementById('teacher-room-progress');
-                progressEl.innerHTML = '';
+            // Firebase RTDB에서 로비 플레이어 가져와서 게임 생성
+            database.ref('lobby/players').once('value').then(snapshot => {
+                if (!snapshot.exists() || Object.keys(snapshot.val()).length < 2) {
+                    showMessage('최소 2명의 플레이어가 필요합니다.', 'error');
+                    startBtn.disabled = false;
+                    startBtn.textContent = '🎯 게임 시작하기';
+                    return;
+                }
                 
-                data.games.forEach((game, index) => {
-                    const item = document.createElement('div');
-                    item.className = 'room-progress-item';
-                    item.innerHTML = `
-                        <span class="room-name">📦 ${index + 1}번 방</span>
-                        <span class="room-status">🎮 게임 진행 중...</span>
-                    `;
-                    progressEl.appendChild(item);
+                const players = Object.values(snapshot.val());
+                const shuffled = [...players].sort(() => Math.random() - 0.5);
+                
+                // 방으로 분할 (최대 5명씩)
+                const rooms = [];
+                for (let i = 0; i < shuffled.length; i += 5) {
+                    rooms.push(shuffled.slice(i, i + 5));
+                }
+                
+                // 장소 목록 가져오기
+                return database.ref('locations').once('value').then(locSnapshot => {
+                    const locations = locSnapshot.exists() 
+                        ? (Array.isArray(locSnapshot.val()) ? locSnapshot.val() : Object.values(locSnapshot.val()))
+                        : [
+                            { id: '1', name: '남춘천역', emoji: '🚉', description: '춘천의 교통 중심지' },
+                            { id: '2', name: '공지천', emoji: '💧', description: '춘천의 아름다운 자연 호수' },
+                            { id: '3', name: '소양강 스카이워크', emoji: '🌉', description: '소양강 위를 걷는 짜릿한 하늘길' },
+                            { id: '4', name: '닭갈비 골목', emoji: '🍗', description: '춘천의 대표 음식 맛집 거리' },
+                            { id: '5', name: '춘천시청', emoji: '🏛️', description: '춘천의 행정 중심지' },
+                            { id: '6', name: '무궁화 타워', emoji: '🌸', description: '춘천의 상징 탑' },
+                            { id: '7', name: '김유정 문학촌', emoji: '📚', description: '작가 김유정의 생가와 문학 공간' },
+                            { id: '8', name: '춘천 호수', emoji: '🏞️', description: '아름다운 경관의 인공 호수' }
+                        ];
+                    
+                    const createdGameIds = [];
+                    
+                    rooms.forEach((roomPlayers) => {
+                        const gameId = Math.floor(100000 + Math.random() * 900000).toString();
+                        createdGameIds.push(gameId);
+                        
+                        // 스파이 선택
+                        const spyIndex = Math.floor(Math.random() * roomPlayers.length);
+                        
+                        // 장소 할당
+                        const shuffledLocations = [...locations].sort(() => Math.random() - 0.5);
+                        const assignedLocation = shuffledLocations[0];
+                        
+                        const gameData = {
+                            id: gameId,
+                            players: roomPlayers.map((p, idx) => ({
+                                id: p.id,
+                                name: p.name,
+                                location: idx === spyIndex ? null : assignedLocation,
+                                isSpy: idx === spyIndex,
+                                hasWritten: false
+                            })),
+                            status: 'playing',
+                            spyId: roomPlayers[spyIndex].id,
+                            assignedLocation: assignedLocation,
+                            descriptions: {},
+                            votes: {},
+                            hostId: 'teacher_' + Date.now(),
+                            gameTimeMinutes: gameTimeMinutes,
+                            timeEndTime: gameTimeMinutes > 0 ? Date.now() + (gameTimeMinutes * 60 * 1000) : null
+                        };
+                        
+                        database.ref('games/' + gameId).set(gameData);
+                    });
+                    
+                    // 로비 플레이어 제거
+                    database.ref('lobby/players').remove();
+                    
+                    // 게임 시작 알림
+                    document.getElementById('teacher-game-status').style.display = 'block';
+                    const progressEl = document.getElementById('teacher-room-progress');
+                    progressEl.innerHTML = '';
+                    
+                    createdGameIds.forEach((gameId, index) => {
+                        const item = document.createElement('div');
+                        item.className = 'room-progress-item';
+                        item.innerHTML = `
+                            <span class="room-name">📦 ${index + 1}번 방</span>
+                            <span class="room-status">🎮 게임 진행 중...</span>
+                        `;
+                        progressEl.appendChild(item);
+                    });
+                    
+                    showMessage(`🎮 게임이 시작되었습니다! (${rooms.length}개 방)`, 'success');
+                    startBtn.disabled = false;
+                    startBtn.textContent = '🎯 게임 시작하기';
                 });
-            }
-            
-            showMessage('세션에 다시 연결되었습니다!', 'success');
-        });
-        
-        socket.on('rejoinTeacherFailed', (data) => {
-            clearTeacherInfo();
-            showMessage(data.message + ' 다시 로그인해주세요.', 'error');
-        });
+            });
+        }
         
         // ==================== 장소 목록 로드 ====================
         async function loadTeacherLocations() {
             try {
-                const response = await fetch('/api/locations');
-                const locations = await response.json();
-                renderTeacherLocations(locations);
+                const snapshot = await database.ref('locations').once('value');
+                if (snapshot.exists()) {
+                    const locations = Array.isArray(snapshot.val()) ? snapshot.val() : Object.values(snapshot.val());
+                    renderTeacherLocations(locations);
+                }
             } catch (error) {
                 console.error('장소 목록 로드 실패:', error);
             }
@@ -816,27 +832,29 @@
             `).join('');
         }
         
-        // ==================== 페이지 로드 시 재접속 시도 ====================
+        // ==================== 페이지 로드 ====================
         document.addEventListener('DOMContentLoaded', function() {
             // 장소 목록 로드
             loadTeacherLocations();
             
-            // locations.html에서 돌아왔을 때 새로고침 확인
-            if (sessionStorage.getItem('locationsUpdated') === 'true') {
-                sessionStorage.removeItem('locationsUpdated');
-                loadTeacherLocations();
-            }
+            // 로비 리스너 설정
+            setupLobbyListener();
             
+            // 재접속 시도
             const savedTeacherInfo = loadTeacherInfo();
             if (savedTeacherInfo && savedTeacherInfo.teacherName) {
                 teacherName = savedTeacherInfo.teacherName;
                 document.getElementById('teacher-name-input').value = teacherName;
                 
-                socket.on('connect', function() {
-                    socket.emit('rejoinTeacherSession', {
-                        teacherName: teacherName
-                    });
+                // 교사 세션 복구
+                database.ref('teacher/session').set({
+                    teacherId: 'teacher_' + Date.now(),
+                    teacherName: teacherName,
+                    startedAt: Date.now()
                 });
+                
+                document.getElementById('teacher-login-section').style.display = 'none';
+                document.getElementById('teacher-dashboard').style.display = 'block';
             }
         });
     </script>
