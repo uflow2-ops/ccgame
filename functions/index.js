@@ -1,4 +1,4 @@
-const functions = require('firebase-functions/v2');
+const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
@@ -277,7 +277,7 @@ app.get('/api/rooms', async (req, res) => {
 app.delete('/api/rooms/:gameId', async (req, res) => {
     try {
         const gameId = req.params.gameId;
-        const gameRef = rtdb.ref(`games/${gameId}`);
+        const gameRef = rtdb.ref('games/' + gameId);
         const snapshot = await gameRef.once('value');
         
         if (!snapshot.exists()) {
