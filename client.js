@@ -13,8 +13,45 @@ let gameState = {
     gameTimeMinutes: 0,
     timeEndTime: null,
     timerInterval: null,
-    descriptions: {}
+    descriptions: {},
+    locations: []
 };
+
+// ==================== 장소 목록 로드 ====================
+async function loadLobbyLocations() {
+    try {
+        const response = await fetch('/api/locations');
+        const locations = await response.json();
+        renderLobbyLocations(locations);
+    } catch (error) {
+        console.error('장소 목록 로드 실패:', error);
+    }
+}
+
+// 로비용 장소 목록 렌더링
+function renderLobbyLocations(locations) {
+    const container = document.getElementById('lobby-locations-container');
+    
+    if (locations.length === 0) {
+        container.innerHTML = `
+            <div class="empty-lobby-locations" style="grid-column: 1 / -1; text-align: center; color: #95a5a6; padding: 20px;">
+                등록된 장소가 없습니다.
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = locations.map(location => `
+        <div class="lobby-location-card" style="background: #f8f9fa; border-radius: 8px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+            ${location.image 
+                ? `<img src="${location.image}" alt="${location.name}" style="width: 100%; height: 80px; object-fit: cover; border-radius: 6px; margin-bottom: 5px;">`
+                : `<div style="width: 100%; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 30px; background: #dfe6e9; border-radius: 6px; margin-bottom: 5px;">${location.emoji || '📍'}</div>`
+            }
+            <div style="font-size: 0.85rem; font-weight: bold; color: #2c3e50; margin-bottom: 3px;">${location.emoji || '📍'} ${location.name}</div>
+            <div style="font-size: 0.7rem; color: #7f8c8d; line-height: 1.3;">${location.description.length > 30 ? location.description.substring(0, 30) + '...' : location.description}</div>
+        </div>
+    `).join('');
+}
 
 // ==================== 화면 관리 ====================
 function showScreen(screenId) {
@@ -62,6 +99,9 @@ function enterLobby() {
     
     gameState.playerName = playerName;
     socket.emit('joinLobby', playerName);
+    
+    // 장소 목록 미리 로드
+    loadLobbyLocations();
 }
 
 // ==================== 게임 시작 ====================
@@ -452,6 +492,8 @@ function celebrateWinner() {
 // 로비로 복귀됨
 socket.on('returnedToLobby', () => {
     showScreen('lobby-screen');
+    // 장소 목록 다시 로드
+    loadLobbyLocations();
     showPopup('로비로 돌아왔습니다! 새로운 게임을 기다려주세요.');
 });
 

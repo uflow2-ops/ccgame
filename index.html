@@ -25,21 +25,32 @@
         </div>
     </div>
 
-    <!-- 로비 화면 -->
-    <div id="lobby-screen" class="screen">
-        <div class="lobby-content">
-            <h2 class="lobby-title">🎪 전체 대기실</h2>
-            <p class="lobby-subtitle">교사가 게임을 시작할 때까지 기다려주세요!</p>
-            
-            <div class="lobby-players-section">
-                <h3>📋 참가자 목록</h3>
-                <p id="lobby-player-count" class="lobby-player-count">현재 0명</p>
-                <div id="lobby-players-container" class="players-container">
-                    <div class="empty-lobby">아직 참가자가 없습니다.</div>
+        <!-- 로비 화면 -->
+        <div id="lobby-screen" class="screen">
+            <div class="lobby-content">
+                <h2 class="lobby-title">🎪 전체 대기실</h2>
+                <p class="lobby-subtitle">교사가 게임을 시작할 때까지 기다려주세요!</p>
+                
+                <div class="lobby-players-section">
+                    <h3>📋 참가자 목록</h3>
+                    <p id="lobby-player-count" class="lobby-player-count">현재 0명</p>
+                    <div id="lobby-players-container" class="players-container">
+                        <div class="empty-lobby">아직 참가자가 없습니다.</div>
+                    </div>
+                </div>
+                
+                <!-- 장소 학습 섹션 -->
+                <div class="locations-study-section" style="margin-top: 30px;">
+                    <h3>📚 춘천 장소 학습</h3>
+                    <p style="color: #636e72; font-size: 0.9rem; margin-bottom: 15px;">다음은 춘천의 주요 장소들입니다. 미리 살펴보세요!</p>
+                    <div id="lobby-locations-container" class="locations-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-height: 300px; overflow-y: auto;">
+                        <div class="empty-lobby-locations" style="grid-column: 1 / -1; text-align: center; color: #95a5a6; padding: 20px;">
+                            장소를 불러오는 중...
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
     <!-- 역할 표시 화면 -->
     <div id="role-screen" class="screen">
