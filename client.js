@@ -1,5 +1,25 @@
-// Socket.io 연결
-const socket = io();
+// Socket.io 연결 (HTTPS/WSS 강제 설정)
+const socket = io({
+    transports: ['websocket', 'polling'],
+    secure: true,
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000
+});
+
+// 연결 상태 모니터링
+socket.on('connect', () => {
+    console.log('Socket 연결 성공:', socket.id);
+});
+
+socket.on('connect_error', (error) => {
+    console.error('Socket 연결 실패:', error);
+    showPopup('서버 연결에 실패했습니다. 네트워크를 확인해주세요.');
+});
+
+socket.on('disconnect', (reason) => {
+    console.log('Socket 연결 끊김:', reason);
+});
 
 // 게임 상태
 let gameState = {

@@ -9,7 +9,13 @@ const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    transports: ['websocket', 'polling'],
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 // 정적 파일 제공
 app.use(express.static(path.join(__dirname)));

@@ -2,10 +2,13 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>춘천 스파이 게임</title>
     <link rel="stylesheet" href="styles.css">
-</head>
 <body>
     <!-- 시작 화면 (이름 입력) -->
     <div id="start-screen" class="screen active">
@@ -149,6 +152,22 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Socket.io 로딩 실패 시 폴백
+        setTimeout(function() {
+            if (typeof io === 'undefined') {
+                console.error('Socket.io 로딩 실패, CDN 폴백 시도');
+                var script = document.createElement('script');
+                script.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+                script.onload = function() {
+                    console.log('CDN Socket.io 로드 성공');
+                };
+                script.onerror = function() {
+                    alert('서버 연결에 실패했습니다. 네트워크 연결을 확인해주세요.');
+                };
+                document.head.appendChild(script);
+            }
+        }, 3000);
+    </script>
     <script src="client.js"></script>
-</body>
 </html>
